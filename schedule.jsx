@@ -14,7 +14,7 @@ const EVENTS = {
 };
 
 const CREW = [
-  { name:'Morgan Riley', role:'Flight Director', initials:'AK', color:'#31a9c7', status:'CONFIRMED' },
+  { name:'Morgan Riley', role:'Flight Director', initials:'MR', color:'#31a9c7', status:'CONFIRMED' },
   { name:'佐藤 美咲', role:'Choreographer', initials:'MS', color:'#d429e0', status:'CONFIRMED' },
   { name:'ライアン・ホール', role:'Safety Officer', initials:'RH', color:'#ffb347', status:'CONFIRMED' },
   { name:'田中 健', role:'Ground Ops Lead', initials:'TK', color:'#98ff9e', status:'CONFIRMED' },

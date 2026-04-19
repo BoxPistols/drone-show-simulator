@@ -536,18 +536,25 @@
   $('btn-prev').addEventListener('click', () => seekToFormation(Math.max(0, state.formationIndex - 1)));
   $('btn-next').addEventListener('click', () => seekToFormation(Math.min(FORMATIONS.length - 1, state.formationIndex + 1)));
 
-  const speeds = [0.5, 1, 1.5, 2];
-  // state.speed (TWEAK_DEFAULTS 由来) と speedI の整合をとる。一致しなければ 1.0× に落とす
+  // スローから 10× までの可搬レンジ。クリックで順送り、Shift+クリックで逆送り、ホイールで前後
+  const speeds = [0.25, 0.5, 1, 2, 5, 10];
+  const fmtSpeed = s => (s < 1 ? String(s) : String(Math.round(s))) + '×';
   let speedI = speeds.indexOf(state.speed);
-  if (speedI === -1) { speedI = 1; state.speed = speeds[1]; }
-  $('btn-speed').textContent = state.speed.toFixed(1) + '×';
+  if (speedI === -1) { speedI = 2; state.speed = speeds[2]; } // default 1×
+  $('btn-speed').textContent = fmtSpeed(state.speed);
   syncPlayIcon();
-  $('btn-speed').addEventListener('click', () => {
-    speedI = (speedI + 1) % speeds.length;
+  function cycleSpeed(dir) {
+    speedI = (speedI + dir + speeds.length) % speeds.length;
     state.speed = speeds[speedI];
-    $('btn-speed').textContent = state.speed.toFixed(1) + '×';
+    $('btn-speed').textContent = fmtSpeed(state.speed);
     persist({ speed: state.speed });
-  });
+  }
+  $('btn-speed').addEventListener('click', e => cycleSpeed(e.shiftKey ? -1 : 1));
+  $('btn-speed').addEventListener('wheel', e => {
+    e.preventDefault();
+    cycleSpeed(e.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+  $('btn-speed').title = 'Click / ホイールで変速 ・ Shift+Click で逆送り';
 
   // Initial NP display
   updateNowPlaying(state.formationIndex);
