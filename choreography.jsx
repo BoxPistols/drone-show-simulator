@@ -17,7 +17,7 @@ const PALETTES = [
   { k:'sakura',  jp:'桜',   colors:['#ffb7c5','#ff69b4','#ffffff','#e8c4ff'] },
   { k:'ember',   jp:'炎',   colors:['#ff6b35','#ffb347','#ffe58a','#d429e0'] },
   { k:'mono',    jp:'白',   colors:['#ffffff','#f0f8ff','#cfe7ff','#ffe58a'] },
-  { k:'asagiri', jp:'朝霧', colors:['#31a9c7','#5b21b6','#ff69b4','#ffffff'] },
+  { k:'flock', jp:'星群', colors:['#31a9c7','#5b21b6','#ff69b4','#ffffff'] },
 ];
 
 function fmt(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}

@@ -4,9 +4,30 @@
 
 
 <meta charset="UTF-8">
-<title>朝霧ドローンショー / Asagiri Drone Show</title>
+<title>Astra Flock — Drone Show / 星群</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="asagiri-tokens.css">
+<meta name="description" content="660 機のドローンで描く 9 演目のライブ観賞ビュー。Three.js 点群シミュレーションによる Astra Flock / 星群 — Drone Show。">
+<meta name="theme-color" content="#02030a">
+<meta name="color-scheme" content="dark">
+
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Astra Flock — Drone Show / 星群">
+<meta property="og:description" content="660 機のドローンで描く 9 演目のライブ観賞ビュー。Three.js 点群シミュレーション。">
+<meta property="og:image" content="og-image.png">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:site_name" content="Astra Flock / 星群">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Astra Flock — Drone Show / 星群">
+<meta name="twitter:description" content="660 機のドローンで描く 9 演目のライブ観賞ビュー。Three.js 点群シミュレーション。">
+<meta name="twitter:image" content="og-image.png">
+
+<link rel="stylesheet" href="tokens.css">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&amp;family=Shippori+Mincho:wght@400;500;600&amp;display=swap" rel="stylesheet">
 <style>
   :root {
@@ -428,7 +449,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    z-index: 11;
+    z-index: 16; /* programme (15) より上に。下端が重なるため click を奪われないように */
     background: var(--ink-strong);
     border: 1px solid var(--hair);
     border-radius: 100px;
@@ -696,8 +717,8 @@
       </svg>
     </div>
     <div class="brand-text">
-      <div class="jp">朝霧ドローンショー</div>
-      <div class="en">Asagiri Drone Show ・ Live</div>
+      <div class="jp">星群</div>
+      <div class="en">Astra Flock ・ Live</div>
     </div>
   </div>
 
@@ -742,7 +763,7 @@
   <div class="np-desc" id="np-desc">ドーナツ状のトーラス面上に配置。観客が真下から見上げると環が空を縁取る。</div>
   <div class="np-meta">
     <div class="np-meta-item">Duration<b id="np-dur">00:36</b></div>
-    <div class="np-meta-item">Composer<b>青木 律 / R. Aoki</b></div>
+    <div class="np-meta-item">Composer<b>Morgan Riley / Morgan Riley</b></div>
   </div>
 </div>
 
@@ -856,7 +877,7 @@
 
   <div class="tw-section">
     <div class="tw-label">Palette ・ 色</div>
-    <div class="tw-swatches" id="tw-palettes"><div class="tw-swatch active" data-key="aurora" title="極光 / Aurora" style="background: linear-gradient(135deg, rgb(49, 169, 199) 0%, rgb(212, 41, 224) 50%, rgb(152, 255, 158) 100%);"></div><div class="tw-swatch" data-key="sakura" title="桜 / Sakura" style="background: linear-gradient(135deg, rgb(255, 183, 197) 0%, rgb(255, 105, 180) 50%, rgb(255, 255, 255) 100%);"></div><div class="tw-swatch" data-key="ember" title="炎 / Ember" style="background: linear-gradient(135deg, rgb(255, 107, 53) 0%, rgb(255, 179, 71) 50%, rgb(255, 229, 138) 100%);"></div><div class="tw-swatch" data-key="mono" title="白 / Mono" style="background: linear-gradient(135deg, rgb(255, 255, 255) 0%, rgb(240, 248, 255) 50%, rgb(207, 231, 255) 100%);"></div><div class="tw-swatch" data-key="asagiri" title="朝霧 / Asagiri" style="background: linear-gradient(135deg, rgb(49, 169, 199) 0%, rgb(91, 33, 182) 50%, rgb(255, 105, 180) 100%);"></div></div>
+    <div class="tw-swatches" id="tw-palettes"><div class="tw-swatch active" data-key="aurora" title="極光 / Aurora" style="background: linear-gradient(135deg, rgb(49, 169, 199) 0%, rgb(212, 41, 224) 50%, rgb(152, 255, 158) 100%);"></div><div class="tw-swatch" data-key="sakura" title="桜 / Sakura" style="background: linear-gradient(135deg, rgb(255, 183, 197) 0%, rgb(255, 105, 180) 50%, rgb(255, 255, 255) 100%);"></div><div class="tw-swatch" data-key="ember" title="炎 / Ember" style="background: linear-gradient(135deg, rgb(255, 107, 53) 0%, rgb(255, 179, 71) 50%, rgb(255, 229, 138) 100%);"></div><div class="tw-swatch" data-key="mono" title="白 / Mono" style="background: linear-gradient(135deg, rgb(255, 255, 255) 0%, rgb(240, 248, 255) 50%, rgb(207, 231, 255) 100%);"></div><div class="tw-swatch" data-key="flock" title="星群 / Flock" style="background: linear-gradient(135deg, rgb(49, 169, 199) 0%, rgb(91, 33, 182) 50%, rgb(255, 105, 180) 100%);"></div></div>
   </div>
 
   <div class="tw-section">

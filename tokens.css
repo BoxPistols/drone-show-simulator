@@ -1,9 +1,8 @@
 /**
- * Asagiri Design System — Colors & Type
+ * Astra Flock — Design Tokens (Colors & Type)
  *
- * Mirrors scss/Tokens/_Color.scss and scss/_Typography.scss from
- * BoxPistols/asagiri for use in static HTML artifacts without
- * needing the full compiled framework.
+ * Single-file CSS custom properties for zero-build HTML artifacts.
+ * Dark theme is enabled by [data-theme="dark"] on <html>.
  */
 
 /* ==========================================================
@@ -12,7 +11,7 @@
 :root {
   /* Brand core */
   --color-default: #0d5d8f;
-  --color-moonstone: #31a9c7; /* "Asagiri" primary — a soft cyan */
+  --color-moonstone: #31a9c7; /* Brand primary — moonstone cyan */
   --color-hotpink: #ff69b4;
 
   /* Primary (HSLA — manipulable) */
@@ -134,7 +133,7 @@
   --spacing-10: 2.5rem;
   --spacing-12: 3rem;
   --spacing-16: 4rem;
-  --spacing-grid: 1.5rem; /* asagiri's default section/container gutter */
+  --spacing-grid: 1.5rem; /* default section/container gutter */
 
   /* Widths */
   --max-width: 1440px;
@@ -145,7 +144,7 @@
   --global-component-line-height: 2.6rem;
 
   /* Type families
-     Asagiri uses system stacks; Poppins is used for the "design-font-en"
+     This token set uses system stacks; Poppins is used for the "design-font-en"
      accent style. We declare Japanese system fallbacks that match the
      original _Typography.scss comments.
   */
@@ -219,7 +218,7 @@
 
 /* ==========================================================
    TYPOGRAPHY — base + semantic
-   Fluid type with clamp() matching asagiri's _Typography.scss
+   Fluid type with clamp() with fluid scaling
    ========================================================== */
 html { -webkit-text-size-adjust: 100%; }
 
@@ -298,7 +297,7 @@ hr {
   border-top: 0.1rem solid var(--color-border-light);
 }
 
-/* Asagiri's signature accent — English display type in hotpink */
+/* Signature accent — English display type in hotpink */
 .design-font-en {
   font-family: var(--font-design);
   letter-spacing: 0.02rem;

@@ -1,5 +1,5 @@
 // ==========================================================
-// Asagiri Drone Show — 660 drones, Three.js point-cloud sim
+// Drone Show — 660 drones, Three.js point-cloud sim
 // ==========================================================
 (function () {
   const DRONE_COUNT = 660;
@@ -223,7 +223,7 @@
     sakura:   { name:'Sakura',   jp:'桜',   colors:['#ffb7c5','#ff69b4','#ffffff','#e8c4ff'] },
     ember:    { name:'Ember',    jp:'炎',   colors:['#ff6b35','#ffb347','#ffe58a','#d429e0'] },
     mono:     { name:'Mono',     jp:'白',   colors:['#ffffff','#f0f8ff','#cfe7ff','#ffe58a'] },
-    asagiri:  { name:'Asagiri',  jp:'朝霧',  colors:['#31a9c7','#5b21b6','#ff69b4','#ffffff'] },
+    flock:   { name:'Flock',   jp:'星群',  colors:['#31a9c7','#5b21b6','#ff69b4','#ffffff'] },
   };
   const PALETTE_KEYS = Object.keys(PALETTES);
 
@@ -522,17 +522,26 @@
   });
 
   // Transport
+  // アイコン規約: 再生中は pause bars (click で止める) / 停止中は play triangle
+  const D_PAUSE = 'M4 3 L7 3 L7 13 L4 13 Z M9 3 L12 3 L12 13 L9 13 Z';
+  const D_PLAY  = 'M4 3 L13 8 L4 13 Z';
+  const playPath = $('play-icon').querySelector('path');
+  function syncPlayIcon() {
+    playPath.setAttribute('d', state.playing ? D_PAUSE : D_PLAY);
+  }
   $('btn-play').addEventListener('click', () => {
     state.playing = !state.playing;
-    $('play-icon').innerHTML = state.playing
-      ? '<path d="M4 3 L13 8 L4 13 Z"/>'
-      : '<path d="M4 3 L7 3 L7 13 L4 13 Z M9 3 L12 3 L12 13 L9 13 Z"/>';
+    syncPlayIcon();
   });
   $('btn-prev').addEventListener('click', () => seekToFormation(Math.max(0, state.formationIndex - 1)));
   $('btn-next').addEventListener('click', () => seekToFormation(Math.min(FORMATIONS.length - 1, state.formationIndex + 1)));
 
   const speeds = [0.5, 1, 1.5, 2];
-  let speedI = 1;
+  // state.speed (TWEAK_DEFAULTS 由来) と speedI の整合をとる。一致しなければ 1.0× に落とす
+  let speedI = speeds.indexOf(state.speed);
+  if (speedI === -1) { speedI = 1; state.speed = speeds[1]; }
+  $('btn-speed').textContent = state.speed.toFixed(1) + '×';
+  syncPlayIcon();
   $('btn-speed').addEventListener('click', () => {
     speedI = (speedI + 1) % speeds.length;
     state.speed = speeds[speedI];
@@ -633,60 +642,60 @@
       blendK = blendK * blendK * (3 - 2 * blendK); // smoothstep
     }
 
-    // Physics: spring toward target
-    const targets = curF.targets;
-    const nextTargets = nextF.targets;
-    const k = 3.2;    // spring stiffness
-    const damping = 0.88;
-    for (let i = 0; i < DRONE_COUNT; i++) {
-      const tx = targets[i*3]   * (1-blendK) + nextTargets[i*3]   * blendK;
-      const ty = targets[i*3+1] * (1-blendK) + nextTargets[i*3+1] * blendK;
-      const tz = targets[i*3+2] * (1-blendK) + nextTargets[i*3+2] * blendK;
-
-      const ax = (tx - posBuf[i*3])   * k;
-      const ay = (ty - posBuf[i*3+1]) * k;
-      const az = (tz - posBuf[i*3+2]) * k;
-
-      velBuf[i*3]   = (velBuf[i*3]   + ax * dt) * damping;
-      velBuf[i*3+1] = (velBuf[i*3+1] + ay * dt) * damping;
-      velBuf[i*3+2] = (velBuf[i*3+2] + az * dt) * damping;
-
-      posBuf[i*3]   += velBuf[i*3]   * dt;
-      posBuf[i*3+1] += velBuf[i*3+1] * dt;
-      posBuf[i*3+2] += velBuf[i*3+2] * dt;
-
-      // subtle breathing size
-      const ph = phase[i] + now * 0.002;
-      const breath = 0.85 + Math.sin(ph) * 0.25;
-      sizeBuf[i] = 7.0 * state.droneSize * breath;
-    }
-
-    droneGeom.attributes.position.needsUpdate = true;
-
-    // Trails
-    if (state.trails) {
-      trailMat.opacity = 0.45;
-      // write current positions (dimmed) into trail ring slot
+    // Physics / trails は再生中のみ進める。停止中は posBuf 凍結で「一時停止」を視覚的に意味あるものに
+    if (state.playing) {
+      const targets = curF.targets;
+      const nextTargets = nextF.targets;
+      const k = 3.2;    // spring stiffness
+      const damping = 0.88;
       for (let i = 0; i < DRONE_COUNT; i++) {
-        const slotOff = (trailIdx * DRONE_COUNT + i) * 3;
-        trailPos[slotOff]   = posBuf[i*3];
-        trailPos[slotOff+1] = posBuf[i*3+1];
-        trailPos[slotOff+2] = posBuf[i*3+2];
-        trailCol[slotOff]   = baseCol[i*3]   * 0.4;
-        trailCol[slotOff+1] = baseCol[i*3+1] * 0.4;
-        trailCol[slotOff+2] = baseCol[i*3+2] * 0.4;
+        const tx = targets[i*3]   * (1-blendK) + nextTargets[i*3]   * blendK;
+        const ty = targets[i*3+1] * (1-blendK) + nextTargets[i*3+1] * blendK;
+        const tz = targets[i*3+2] * (1-blendK) + nextTargets[i*3+2] * blendK;
+
+        const ax = (tx - posBuf[i*3])   * k;
+        const ay = (ty - posBuf[i*3+1]) * k;
+        const az = (tz - posBuf[i*3+2]) * k;
+
+        velBuf[i*3]   = (velBuf[i*3]   + ax * dt) * damping;
+        velBuf[i*3+1] = (velBuf[i*3+1] + ay * dt) * damping;
+        velBuf[i*3+2] = (velBuf[i*3+2] + az * dt) * damping;
+
+        posBuf[i*3]   += velBuf[i*3]   * dt;
+        posBuf[i*3+1] += velBuf[i*3+1] * dt;
+        posBuf[i*3+2] += velBuf[i*3+2] * dt;
+
+        // subtle breathing size
+        const ph = phase[i] + now * 0.002;
+        const breath = 0.85 + Math.sin(ph) * 0.25;
+        sizeBuf[i] = 7.0 * state.droneSize * breath;
       }
-      trailIdx = (trailIdx + 1) % 8;
-      trailGeom.attributes.position.needsUpdate = true;
-      trailGeom.attributes.color.needsUpdate = true;
-    } else {
-      trailMat.opacity = 0;
+
+      droneGeom.attributes.position.needsUpdate = true;
+
+      if (state.trails) {
+        trailMat.opacity = 0.45;
+        for (let i = 0; i < DRONE_COUNT; i++) {
+          const slotOff = (trailIdx * DRONE_COUNT + i) * 3;
+          trailPos[slotOff]   = posBuf[i*3];
+          trailPos[slotOff+1] = posBuf[i*3+1];
+          trailPos[slotOff+2] = posBuf[i*3+2];
+          trailCol[slotOff]   = baseCol[i*3]   * 0.4;
+          trailCol[slotOff+1] = baseCol[i*3+1] * 0.4;
+          trailCol[slotOff+2] = baseCol[i*3+2] * 0.4;
+        }
+        trailIdx = (trailIdx + 1) % 8;
+        trailGeom.attributes.position.needsUpdate = true;
+        trailGeom.attributes.color.needsUpdate = true;
+      } else {
+        trailMat.opacity = 0;
+      }
     }
 
     droneMat.size = 3.0 * state.droneSize * (state.glow ? 1.2 : 0.9);
 
-    // Camera orbit (eased)
-    if (state.rotate && !orbit.dragging) orbit.rLon += dt * 6;
+    // Camera orbit: 自動回転は再生中のみ。手動ドラッグ/ホイールは一時停止中でも効く
+    if (state.rotate && state.playing && !orbit.dragging) orbit.rLon += dt * 6;
     orbit.rLon += (orbit.lon - orbit.rLon) * 0.12;
     orbit.rLat += (orbit.lat - orbit.rLat) * 0.12;
     orbit.rDist += (orbit.dist - orbit.rDist) * 0.12;

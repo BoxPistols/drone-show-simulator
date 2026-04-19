@@ -1,8 +1,8 @@
 {
-  "name": "asagiri-drone-show",
+  "name": "drone-show-simulator",
   "version": "0.1.0",
   "private": true,
-  "description": "Asagiri Drone Show — 660 drones, Three.js point-cloud live viewer",
+  "description": "Drone Show — 660 drones, Three.js point-cloud live viewer",
   "scripts": {
     "dev": "npx --yes serve -l 8080 .",
     "build": "echo 'Static site — nothing to build.'",
