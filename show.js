@@ -147,29 +147,75 @@
     return out;
   }
   function fBear(n) {
-    // Bear FACE close-up: big head disc + two ears on top (teddy-bear silhouette).
-    // Fibonacci-disk filled regions, base altitude 60m.
-    const regions = [
-      { cx:   0, cy:   0, r: 42, w: 5540 }, // head (main disc, center)
-      { cx: -28, cy:  36, r: 14, w:  615 }, // left ear
-      { cx:  28, cy:  36, r: 14, w:  615 }, // right ear
-    ];
-    const totalW = regions.reduce((s, r) => s + r.w, 0);
+    // Kawaii bear face: round head + small eye dots (voids) + curved smile.
+    // No snout void — it reads as a menacing hole at this resolution.
+    // Base altitude 60m.
     const out = new Float32Array(n * 3);
-    const GOLDEN = 2.399963229728653; // Fibonacci golden angle
+    const head = { cx: 0, cy: 0, r: 42 };
+    const voids = [
+      { cx: -12, cy: 6, r: 4 },  // left eye (small dot)
+      { cx:  12, cy: 6, r: 4 },  // right eye
+    ];
+    const ears = [
+      { cx: -28, cy: 36, r: 14 },
+      { cx:  28, cy: 36, r: 14 },
+    ];
+    // Mouth: 6-point curved smile, wider and gentler
+    const mouth = [
+      { x: -9, y: -18 }, { x: -5, y: -21 }, { x: -2, y: -22 },
+      { x:  2, y: -22 }, { x:  5, y: -21 }, { x:  9, y: -18 },
+    ];
+    const headArea = Math.PI * head.r * head.r;
+    const voidArea = voids.reduce((s, v) => s + Math.PI * v.r * v.r, 0);
+    const earArea  = Math.PI * ears[0].r * ears[0].r;
+    const fillableHead = Math.max(0, headArea - voidArea);
+    const totalFill = fillableHead + 2 * earArea;
+    const remaining = n - mouth.length;
+    const nHead  = Math.round(remaining * fillableHead / totalFill);
+    const nEar1  = Math.round(remaining * earArea / totalFill);
+    const nEar2  = remaining - nHead - nEar1;
+    const GOLDEN = 2.399963229728653;
     let idx = 0;
-    for (let ri = 0; ri < regions.length; ri++) {
-      const rg = regions[ri];
-      const count = ri === regions.length - 1 ? n - idx : Math.round((rg.w / totalW) * n);
+    // Head: Fibonacci disk with rejection on void regions
+    const HEAD_SAMPLES = Math.ceil(nHead * 1.2);
+    let placed = 0;
+    for (let k = 0; k < HEAD_SAMPLES && placed < nHead; k++) {
+      const t = (k + 0.5) / HEAD_SAMPLES;
+      const theta = k * GOLDEN;
+      const rr = Math.sqrt(t) * head.r;
+      const px = rr * Math.cos(theta);
+      const py = rr * Math.sin(theta);
+      let inVoid = false;
+      for (const v of voids) {
+        if (Math.hypot(px - v.cx, py - v.cy) < v.r) { inVoid = true; break; }
+      }
+      if (inVoid) continue;
+      out[idx*3]   = head.cx + px;
+      out[idx*3+1] = 60 + head.cy + py;
+      out[idx*3+2] = (Math.random() - 0.5) * 3;
+      idx++; placed++;
+    }
+    // Ears
+    for (let e = 0; e < 2; e++) {
+      const ear = ears[e];
+      const count = e === 0 ? nEar1 : nEar2;
       for (let k = 0; k < count && idx < n; k++) {
         const t = (k + 0.5) / count;
         const theta = k * GOLDEN;
-        const rr = Math.sqrt(t) * rg.r;
-        out[idx*3]   = rg.cx + rr * Math.cos(theta);
-        out[idx*3+1] = 60 + rg.cy + rr * Math.sin(theta);
+        const rr = Math.sqrt(t) * ear.r;
+        out[idx*3]   = ear.cx + rr * Math.cos(theta);
+        out[idx*3+1] = 60 + ear.cy + rr * Math.sin(theta);
         out[idx*3+2] = (Math.random() - 0.5) * 3;
         idx++;
       }
+    }
+    // Mouth arc
+    for (const m of mouth) {
+      if (idx >= n) break;
+      out[idx*3]   = m.x;
+      out[idx*3+1] = 60 + m.y;
+      out[idx*3+2] = (Math.random() - 0.5) * 2;
+      idx++;
     }
     while (idx < n) {
       out[idx*3] = 0; out[idx*3+1] = 60; out[idx*3+2] = 0;
@@ -636,24 +682,31 @@
       const nextTargets = nextF.targets;
       const k = 3.2;    // spring stiffness
       const damping = 0.88;
+      // 早送り時は編隊切替頻度が上がるので物理もそれに追従させる。
+      // dt を state.speed 倍し、10 サブステップまで刻んで数値安定を保つ
+      const physIters = Math.max(1, Math.min(10, Math.ceil(state.speed)));
+      const physDt = (dt * state.speed) / physIters;
+      for (let step = 0; step < physIters; step++) {
+        for (let i = 0; i < DRONE_COUNT; i++) {
+          const tx = targets[i*3]   * (1-blendK) + nextTargets[i*3]   * blendK;
+          const ty = targets[i*3+1] * (1-blendK) + nextTargets[i*3+1] * blendK;
+          const tz = targets[i*3+2] * (1-blendK) + nextTargets[i*3+2] * blendK;
+
+          const ax = (tx - posBuf[i*3])   * k;
+          const ay = (ty - posBuf[i*3+1]) * k;
+          const az = (tz - posBuf[i*3+2]) * k;
+
+          velBuf[i*3]   = (velBuf[i*3]   + ax * physDt) * damping;
+          velBuf[i*3+1] = (velBuf[i*3+1] + ay * physDt) * damping;
+          velBuf[i*3+2] = (velBuf[i*3+2] + az * physDt) * damping;
+
+          posBuf[i*3]   += velBuf[i*3]   * physDt;
+          posBuf[i*3+1] += velBuf[i*3+1] * physDt;
+          posBuf[i*3+2] += velBuf[i*3+2] * physDt;
+        }
+      }
+      // Breathing size は wall-clock で十分 (1 回/フレーム)
       for (let i = 0; i < DRONE_COUNT; i++) {
-        const tx = targets[i*3]   * (1-blendK) + nextTargets[i*3]   * blendK;
-        const ty = targets[i*3+1] * (1-blendK) + nextTargets[i*3+1] * blendK;
-        const tz = targets[i*3+2] * (1-blendK) + nextTargets[i*3+2] * blendK;
-
-        const ax = (tx - posBuf[i*3])   * k;
-        const ay = (ty - posBuf[i*3+1]) * k;
-        const az = (tz - posBuf[i*3+2]) * k;
-
-        velBuf[i*3]   = (velBuf[i*3]   + ax * dt) * damping;
-        velBuf[i*3+1] = (velBuf[i*3+1] + ay * dt) * damping;
-        velBuf[i*3+2] = (velBuf[i*3+2] + az * dt) * damping;
-
-        posBuf[i*3]   += velBuf[i*3]   * dt;
-        posBuf[i*3+1] += velBuf[i*3+1] * dt;
-        posBuf[i*3+2] += velBuf[i*3+2] * dt;
-
-        // subtle breathing size
         const ph = phase[i] + now * 0.002;
         const breath = 0.85 + Math.sin(ph) * 0.25;
         sizeBuf[i] = 7.0 * state.droneSize * breath;

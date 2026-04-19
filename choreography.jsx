@@ -22,7 +22,20 @@ const PALETTES = [
 
 function fmt(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 
-// Mini preview of selected formation (CSS points)
+// Easing curves — same set as the EASING selector
+const EASING_FN = {
+  'Linear':   t => t,
+  'Ease-in':  t => t * t,
+  'Ease-out': t => 1 - (1-t) * (1-t),
+  'Ease-both':t => t * t * (3 - 2*t),
+  'Elastic':  t => {
+    if (t === 0 || t === 1) return t;
+    const c4 = (2 * Math.PI) / 3;
+    return Math.pow(2, -10*t) * Math.sin((t*10 - 0.75) * c4) + 1;
+  },
+};
+
+// Mini preview of selected formation (CSS points) — reactive to all parameters
 function Preview({ formation, time, total }) {
   const canvasRef = useRef();
   useEffect(() => {
@@ -35,15 +48,31 @@ function Preview({ formation, time, total }) {
     const W = rect.width, H = rect.height;
     ctx.clearRect(0,0,W,H);
 
-    const cx = W/2, cy = H/2;
-    const R = Math.min(W, H) * 0.32;
-    const N = 220; // preview-reduced
-    const t = time * 0.4;
-    ctx.fillStyle = formation.color;
+    // Parameter-driven modifiers — every right-panel control lands visually here
+    const altOffset  = -((formation.altitude || 60) - 60) * 0.45;     // 高度 → 縦シフト
+    const spreadScale = (formation.spread || 55) / 55;                 // 広がり → 半径倍率
+    const trans      = formation.speed || 1;                           // 遷移速度 → 時間倍率
+    const Nbase = 220;
+    const N = Math.max(40, Math.round(Nbase * (formation.drones || 660) / 660)); // 配置機数 → 点数
+    const cx = W/2, cy = H/2 + altOffset;
+    const R  = Math.min(W, H) * 0.32 * spreadScale;
+    const t  = time * 0.4 * trans;
+
+    // Easing → 演目進行に伴うスケール pulse (全演目共通の視覚反応)
+    const progress = Math.max(0, Math.min(1, total > 0 ? (time % total) / total : 0));
+    const easeFn = EASING_FN[formation.easing] || EASING_FN['Ease-both'];
+    const pulseScale = 0.82 + easeFn(progress) * 0.34;                  // 0.82 - 1.16 pulse
+
+    // Palette Override → 色
+    const ov = PALETTES.find(p => p.k === formation.paletteOverride);
+    const baseColor = ov ? ov.colors[0] : formation.color;
+    const accentColor = ov ? ov.colors[1] : formation.color;
 
     for (let i = 0; i < N; i++) {
       let x=0,y=0;
       const tt = i / N;
+      // Override 時は 4 点に 1 つを accent 色に
+      ctx.fillStyle = (ov && i % 4 === 0) ? accentColor : baseColor;
       switch(formation.id) {
         case 'sphere': {
           const phi = Math.PI * (Math.sqrt(5) - 1);
@@ -112,20 +141,64 @@ function Preview({ formation, time, total }) {
           break;
         }
         case 'bear': {
-          // Face close-up: big head disc + 2 ears on top. Canvas y is down-positive.
-          let cx2, cy2, r2, sub, tot;
-          if (i < 177)       { cx2 =  0;    cy2 =  0;    r2 = 0.58; sub = i;        tot = 177; }
-          else if (i < 199)  { cx2 = -0.38; cy2 = -0.50; r2 = 0.20; sub = i - 177;  tot =  22; }
-          else               { cx2 =  0.38; cy2 = -0.50; r2 = 0.20; sub = i - 199;  tot =  21; }
-          const ttL = (sub + 0.5) / tot;
-          const theta = sub * 2.399963 + t * 0.3;
-          x = cx2 * R + Math.sqrt(ttL) * r2 * R * Math.cos(theta);
-          y = cy2 * R + Math.sqrt(ttL) * r2 * R * Math.sin(theta);
+          // Kawaii face: 2 small eye voids + 6-point smile arc + ears. No snout.
+          // Canvas y is down-positive; eyes upper (-y), mouth lower (+y).
+          const MOUTH_PTS = 6;
+          const remaining = N - MOUTH_PTS;
+          const nHead = Math.round(remaining * 0.80);
+          const nEar1 = Math.round(remaining * 0.10);
+          const nEar2 = remaining - nHead - nEar1;
+          if (i >= N - MOUTH_PTS) {
+            // Mouth: 6-point gentle smile arc
+            const m = i - (N - MOUTH_PTS);
+            x = [-0.214, -0.119, -0.048, 0.048, 0.119, 0.214][m] * R;
+            y = [ 0.429,  0.500,  0.524, 0.524, 0.500, 0.429][m] * R;
+          } else if (i >= nHead + nEar1) {
+            // Right ear
+            const k = i - (nHead + nEar1);
+            const cnt = Math.max(1, nEar2);
+            const ttL = (k + 0.5) / cnt;
+            const theta = k * 2.399963 + t * 0.3;
+            x =  0.667*R + Math.sqrt(ttL) * 0.333 * R * Math.cos(theta);
+            y = -0.857*R + Math.sqrt(ttL) * 0.333 * R * Math.sin(theta);
+          } else if (i >= nHead) {
+            // Left ear
+            const k = i - nHead;
+            const cnt = Math.max(1, nEar1);
+            const ttL = (k + 0.5) / cnt;
+            const theta = k * 2.399963 + t * 0.3;
+            x = -0.667*R + Math.sqrt(ttL) * 0.333 * R * Math.cos(theta);
+            y = -0.857*R + Math.sqrt(ttL) * 0.333 * R * Math.sin(theta);
+          } else {
+            // Head with rejection on small eye voids only
+            const voids = [
+              { cx: -0.286*R, cy: -0.143*R, r: 0.095*R }, // left eye (small)
+              { cx:  0.286*R, cy: -0.143*R, r: 0.095*R }, // right eye (small)
+            ];
+            const HEAD_SAMPLES = Math.ceil(nHead * 1.15);
+            let placed = 0;
+            for (let k = 0; k < HEAD_SAMPLES * 2; k++) {
+              const tt2 = (k + 0.5) / HEAD_SAMPLES;
+              if (tt2 > 1) break;
+              const th = k * 2.399963 + t * 0.3;
+              const rr = Math.sqrt(tt2) * R;
+              const px = rr * Math.cos(th);
+              const py = rr * Math.sin(th);
+              let inVoid = false;
+              for (const v of voids) {
+                if (Math.hypot(px - v.cx, py - v.cy) < v.r) { inVoid = true; break; }
+              }
+              if (!inVoid) {
+                if (placed === i) { x = px; y = py; break; }
+                placed++;
+              }
+            }
+          }
           break;
         }
       }
-      // rotate
-      const sz = 2 + Math.sin(i*0.3 + t*2)*0.8;
+      // rotate + easing pulse on point size
+      const sz = (2 + Math.sin(i*0.3 + t*2)*0.8) * pulseScale;
       ctx.globalAlpha = 0.8;
       ctx.beginPath();
       ctx.arc(cx + x, cy + y, sz, 0, Math.PI*2);
@@ -364,9 +437,10 @@ function Choreo() {
               <span className="l">配置機数</span>
               <span className="v">{sel.drones} / 660 機</span>
             </div>
+            <input type="range" className="cr-slider" min="60" max="660" step="10" value={sel.drones} onChange={e=>updateSel({drones:+e.target.value})} style={{marginTop:8}}/>
             <div style={{fontFamily:'var(--mono)',fontSize:10, color:'var(--text-3)', marginTop:8, lineHeight:1.7, letterSpacing:'0.04em'}}>
-              AS-001 … AS-660 ・ 全機割当<br/>
-              予備機: AS-601以降 18機
+              AS-001 … AS-{String(sel.drones).padStart(3,'0')} ・ {sel.drones === 660 ? '全機割当' : `${sel.drones}機割当`}<br/>
+              予備機: AS-{String(sel.drones+1).padStart(3,'0')}以降 {660 - sel.drones}機
             </div>
           </div>
         </div>
