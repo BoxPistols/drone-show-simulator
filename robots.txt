@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://drone-show-simulator.vercel.app/sitemap.xml

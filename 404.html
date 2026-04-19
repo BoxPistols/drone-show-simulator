@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>404 — Astra Flock</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="ページが見つかりません。Astra Flock / 星群 — Drone Show。">
+<meta name="theme-color" content="#02030a">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex">
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+<link rel="stylesheet" href="/tokens.css">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Shippori+Mincho:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% 30%, #0e1530 0%, #02030a 70%);
+    color: #e8eef6;
+    font-family: "Helvetica Neue", Arial, "Hiragino Sans", sans-serif;
+    overflow-x: hidden;
+  }
+  .shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+  }
+  .mark {
+    width: 60px; height: 60px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #31a9c7, #5b21b6);
+    display: grid; place-items: center;
+    margin-bottom: 36px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(49,169,199,0.25);
+  }
+  .mark::after {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4), transparent 50%);
+  }
+  .mark svg { position: relative; z-index: 1; }
+  .code {
+    font-family: "Poppins", sans-serif;
+    font-size: clamp(96px, 18vw, 160px);
+    font-weight: 300;
+    letter-spacing: -0.04em;
+    margin: 0 0 4px;
+    color: rgba(255,255,255,0.92);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .label-jp {
+    font-family: "Shippori Mincho", "Yu Mincho", serif;
+    font-size: clamp(22px, 3vw, 30px);
+    letter-spacing: 0.12em;
+    color: #f8fafc;
+    margin: 0 0 8px;
+  }
+  .label-en {
+    font-family: "Poppins", sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    color: #ff69b4;
+    text-transform: uppercase;
+    margin: 0 0 44px;
+  }
+  .links {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 560px;
+  }
+  .link {
+    padding: 12px 22px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: #e8eef6;
+    text-decoration: none;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    transition: all 0.15s;
+    font-family: "Shippori Mincho", serif;
+  }
+  .link .en {
+    font-family: "Poppins", sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    color: rgba(255,255,255,0.45);
+    text-transform: uppercase;
+    margin-left: 8px;
+  }
+  .link:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.2);
+    color: #fff;
+  }
+  .link.primary {
+    background: #31a9c7;
+    color: #02030a;
+    border-color: #31a9c7;
+  }
+  .link.primary .en { color: rgba(2,3,10,0.55); }
+  .link.primary:hover { filter: brightness(1.08); }
+  .footer {
+    margin-top: 60px;
+    font-family: "Poppins", sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: rgba(255,255,255,0.3);
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+  <main class="shell">
+    <div class="mark">
+      <svg width="30" height="30" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+        <path d="M11 3 L18 18 L14 18 L11 11 L8 18 L4 18 Z" fill="white"/>
+      </svg>
+    </div>
+    <p class="code">404</p>
+    <p class="label-jp">群から逸れたようです</p>
+    <p class="label-en">Lost in the flock</p>
+    <nav class="links">
+      <a class="link primary" href="/">観賞<span class="en">Show</span></a>
+      <a class="link" href="/fleet.html">機体<span class="en">Fleet</span></a>
+      <a class="link" href="/choreography.html">振付<span class="en">Choreo</span></a>
+      <a class="link" href="/schedule.html">運航<span class="en">Schedule</span></a>
+    </nav>
+    <div class="footer">Astra Flock ・ 星群</div>
+  </main>
+</body>
+</html>

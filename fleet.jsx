@@ -1,7 +1,7 @@
 // Fleet management — 660 drone roster
 const { useState, useMemo, useEffect } = React;
 
-const FORMATION_NAMES = ['球体','単螺旋','円環','波紋','二重螺旋','立方体','銀河','心臓','寿'];
+const FORMATION_NAMES = ['球体','単螺旋','円環','波紋','二重螺旋','立方体','銀河','心臓','熊'];
 const MODELS = ['DS-A1','DS-A1','DS-A1','DS-A2','DS-A2 Pro'];
 const FIRMWARE = ['v4.2.1','v4.2.1','v4.2.1','v4.2.0','v4.1.8'];
 

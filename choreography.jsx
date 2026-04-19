@@ -9,7 +9,7 @@ const FORMATIONS = [
   { id:'cube',    jp:'立方体',    en:'Wireframe Cube',       dur:34, color:'#ff69b4', drones:660, desc:'12本のエッジ上に配置。' },
   { id:'galaxy',  jp:'銀河',      en:'Spiral Galaxy',        dur:48, color:'#c5b3ff', drones:660, desc:'四本腕の渦巻銀河。' },
   { id:'heart',   jp:'心臓',      en:'Pulse of Love',        dur:32, color:'#ff6b7a', drones:660, desc:'パラメトリック心臓形。' },
-  { id:'kanji',   jp:'寿',        en:'Kotobuki',             dur:54, color:'#ffe58a', drones:660, desc:'書の一文字。フィナーレ。' },
+  { id:'bear',    jp:'熊',        en:'Bear Silhouette',      dur:54, color:'#d4915c', drones:660, desc:'クマの顔のクローズアップ。頭 + 2 つの耳。フィナーレ。' },
 ];
 const EASING = ['Linear','Ease-in','Ease-out','Ease-both','Elastic'];
 const PALETTES = [
@@ -111,14 +111,16 @@ function Preview({ formation, time, total }) {
           x = hx * scl; y = hy * scl;
           break;
         }
-        case 'kanji': {
-          // rough approximation: vertical + two horizontal + diagonal
-          const seg = i%5;
-          if (seg===0){x=(tt*2-1)*R*0.9; y=-R*0.55;}
-          else if (seg===1){x=(tt*2-1)*R*0.8; y=-R*0.1;}
-          else if (seg===2){x=(tt*2-1)*R; y=R*0.15;}
-          else if (seg===3){x=(tt*2-1)*R*0.1; y=(tt*2-1)*R*0.7;}
-          else {x=(tt*2-1)*R*0.9; y=R*0.55;}
+        case 'bear': {
+          // Face close-up: big head disc + 2 ears on top. Canvas y is down-positive.
+          let cx2, cy2, r2, sub, tot;
+          if (i < 177)       { cx2 =  0;    cy2 =  0;    r2 = 0.58; sub = i;        tot = 177; }
+          else if (i < 199)  { cx2 = -0.38; cy2 = -0.50; r2 = 0.20; sub = i - 177;  tot =  22; }
+          else               { cx2 =  0.38; cy2 = -0.50; r2 = 0.20; sub = i - 199;  tot =  21; }
+          const ttL = (sub + 0.5) / tot;
+          const theta = sub * 2.399963 + t * 0.3;
+          x = cx2 * R + Math.sqrt(ttL) * r2 * R * Math.cos(theta);
+          y = cy2 * R + Math.sqrt(ttL) * r2 * R * Math.sin(theta);
           break;
         }
       }

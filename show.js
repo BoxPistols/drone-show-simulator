@@ -146,50 +146,31 @@
     }
     return out;
   }
-  function fKanjiKotobuki(n) {
-    // Glyph for 寿 (celebration). Drawn as line segments on a 2D canvas,
-    // then we sample points along those lines and lift into world space.
-    const strokes = [
-      // top horizontal
-      [[-1.1, 1.0],[1.1, 1.0]],
-      // vertical under top
-      [[0, 1.0],[0, 0.55]],
-      // second horizontal (shorter)
-      [[-0.8, 0.55],[0.8, 0.55]],
-      // third horizontal
-      [[-1.0, 0.15],[1.0, 0.15]],
-      // diagonal upper-left into middle
-      [[-1.0, 0.85],[0.2, 0.35]],
-      // vertical center tall
-      [[0.05, 0.15],[0.05, -0.75]],
-      // bottom horizontal
-      [[-0.9, -0.25],[0.9, -0.25]],
-      // flourish bottom
-      [[-0.55, -0.25],[-0.85, -0.85]],
-      [[ 0.55, -0.25],[ 0.85, -0.85]],
-      // final kick
-      [[0.05, -0.75],[0.55, -1.05]],
+  function fBear(n) {
+    // Bear FACE close-up: big head disc + two ears on top (teddy-bear silhouette).
+    // Fibonacci-disk filled regions, base altitude 60m.
+    const regions = [
+      { cx:   0, cy:   0, r: 42, w: 5540 }, // head (main disc, center)
+      { cx: -28, cy:  36, r: 14, w:  615 }, // left ear
+      { cx:  28, cy:  36, r: 14, w:  615 }, // right ear
     ];
-    // total length
-    const lens = strokes.map(([a,b]) => Math.hypot(b[0]-a[0], b[1]-a[1]));
-    const total = lens.reduce((s,v) => s+v, 0);
+    const totalW = regions.reduce((s, r) => s + r.w, 0);
     const out = new Float32Array(n * 3);
-    const SCALE = 42;
+    const GOLDEN = 2.399963229728653; // Fibonacci golden angle
     let idx = 0;
-    for (let s = 0; s < strokes.length; s++) {
-      const count = Math.round((lens[s] / total) * n);
-      const [a, b] = strokes[s];
+    for (let ri = 0; ri < regions.length; ri++) {
+      const rg = regions[ri];
+      const count = ri === regions.length - 1 ? n - idx : Math.round((rg.w / totalW) * n);
       for (let k = 0; k < count && idx < n; k++) {
-        const t = k / Math.max(1, count - 1);
-        const jx = (Math.random() - 0.5) * 0.8;
-        const jy = (Math.random() - 0.5) * 0.8;
-        out[idx*3]   = (a[0] + (b[0]-a[0]) * t) * SCALE + jx;
-        out[idx*3+1] = (a[1] + (b[1]-a[1]) * t) * SCALE + 60 + jy;
-        out[idx*3+2] = (Math.random() - 0.5) * 2;
+        const t = (k + 0.5) / count;
+        const theta = k * GOLDEN;
+        const rr = Math.sqrt(t) * rg.r;
+        out[idx*3]   = rg.cx + rr * Math.cos(theta);
+        out[idx*3+1] = 60 + rg.cy + rr * Math.sin(theta);
+        out[idx*3+2] = (Math.random() - 0.5) * 3;
         idx++;
       }
     }
-    // fill remaining
     while (idx < n) {
       out[idx*3] = 0; out[idx*3+1] = 60; out[idx*3+2] = 0;
       idx++;
@@ -206,7 +187,7 @@
     { id:'cube',   jp:'立方体',        en:'Wireframe Cube',      desc:'12本のエッジ上に55機ずつ配置。辺と頂点だけで、立方体の輪郭を空中に描く。',           dur:34, fn:fCube,        color:'#ff69b4' },
     { id:'galaxy',  jp:'銀河',         en:'Spiral Galaxy',       desc:'四本腕の渦巻銀河。中心から外縁へ、660個の恒星がゆるやかに渦を巻く。',                dur:48, fn:fGalaxy,      color:'#c5b3ff' },
     { id:'heart',   jp:'心臓',         en:'Pulse of Love',       desc:'パラメトリック方程式による心臓形。フィナーレに向けた、観客への静かな挨拶。',           dur:32, fn:fHeart,       color:'#ff6b7a' },
-    { id:'kanji',   jp:'寿',           en:'Kotobuki — Longevity', desc:'最終演目。一文字の書。東京湾の夜空に、筆で描かれたように浮かび上がる。',              dur:54, fn:fKanjiKotobuki, color:'#ffe58a' },
+    { id:'bear',    jp:'熊',           en:'Bear Silhouette',     desc:'最終演目。クマの顔のクローズアップ。大きな頭と二つの丸い耳が夜空から観客を見下ろす。',    dur:54, fn:fBear,         color:'#d4915c' },
   ];
 
   // Pre-compute targets for all formations
