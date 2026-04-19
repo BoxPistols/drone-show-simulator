@@ -35,7 +35,9 @@ const EASING_FN = {
   },
 };
 
-// Mini preview of selected formation (CSS points) — reactive to all parameters
+// Mini preview — uses the EXACT same 3D target positions as the main Three.js
+// view (via window.AstraFlock from formations.js), projected to 2D with a
+// Y-axis rotation + simple perspective so the look stays consistent.
 function Preview({ formation, time, total }) {
   const canvasRef = useRef();
   useEffect(() => {
@@ -46,173 +48,74 @@ function Preview({ formation, time, total }) {
     const ctx = c.getContext('2d');
     ctx.scale(dpr, dpr);
     const W = rect.width, H = rect.height;
-    ctx.clearRect(0,0,W,H);
+    ctx.clearRect(0, 0, W, H);
 
-    // Parameter-driven modifiers — every right-panel control lands visually here
-    const altOffset  = -((formation.altitude || 60) - 60) * 0.45;     // 高度 → 縦シフト
-    const spreadScale = (formation.spread || 55) / 55;                 // 広がり → 半径倍率
-    const trans      = formation.speed || 1;                           // 遷移速度 → 時間倍率
-    const Nbase = 220;
-    const N = Math.max(40, Math.round(Nbase * (formation.drones || 660) / 660)); // 配置機数 → 点数
-    const cx = W/2, cy = H/2 + altOffset;
-    const R  = Math.min(W, H) * 0.32 * spreadScale;
-    const t  = time * 0.4 * trans;
+    const af = window.AstraFlock;
+    const fdata = af && af.FORMATIONS.find(f => f.id === formation.id);
+    if (!fdata || !fdata.targets) return;
+    const targets = fdata.targets;
+    const N_total = af.DRONE_COUNT;
 
-    // Easing → 演目進行に伴うスケール pulse (全演目共通の視覚反応)
-    const progress = Math.max(0, Math.min(1, total > 0 ? (time % total) / total : 0));
+    // Right-panel controls → projection modifiers
+    const altOffset  = ((formation.altitude || 60) - 60);           // m
+    const spreadScale = (formation.spread || 55) / 55;
+    const trans = formation.speed || 1;
+    const N_draw = Math.max(40, Math.round(N_total * (formation.drones || 660) / 660));
+
+    // Easing pulse on point size
+    const progress = total > 0 ? (time % total) / total : 0;
     const easeFn = EASING_FN[formation.easing] || EASING_FN['Ease-both'];
-    const pulseScale = 0.82 + easeFn(progress) * 0.34;                  // 0.82 - 1.16 pulse
+    const pulseSz = 0.82 + easeFn(progress) * 0.34;
 
-    // Palette Override → 色
+    // Camera + projection — rotate around world Y
+    const cx = W/2, cy = H/2 + 12;
+    const worldCenter = 60;
+    const R = Math.min(W, H) * 0.45;
+    const scale = (R / 70) * spreadScale;
+    const rotY = time * 0.4 * trans;
+    const camDist = 220;
+    const sinR = Math.sin(rotY), cosR = Math.cos(rotY);
+
+    // Palette Override → 色置換
     const ov = PALETTES.find(p => p.k === formation.paletteOverride);
     const baseColor = ov ? ov.colors[0] : formation.color;
     const accentColor = ov ? ov.colors[1] : formation.color;
 
-    for (let i = 0; i < N; i++) {
-      let x=0,y=0;
-      const tt = i / N;
-      // Override 時は 4 点に 1 つを accent 色に
-      ctx.fillStyle = (ov && i % 4 === 0) ? accentColor : baseColor;
-      switch(formation.id) {
-        case 'sphere': {
-          const phi = Math.PI * (Math.sqrt(5) - 1);
-          const yy = 1 - (i / (N-1)) * 2;
-          const r = Math.sqrt(1 - yy*yy);
-          const th = phi * i + t;
-          x = Math.cos(th) * r * R;
-          y = yy * R;
-          break;
-        }
-        case 'helix': {
-          const a = tt * 6 * Math.PI * 2 + t;
-          const strand = i%2===0?1:-1;
-          x = Math.cos(a) * R * 0.4 * strand;
-          y = (tt - 0.5) * R * 2;
-          break;
-        }
-        case 'torus': {
-          const u = (i%28)/28 * Math.PI*2 + t*0.5;
-          const v = Math.floor(i/28)/(N/28) * Math.PI*2;
-          x = (R*0.7 + R*0.3*Math.cos(v))*Math.cos(u);
-          y = R*0.3*Math.sin(v);
-          break;
-        }
-        case 'wave': {
-          const side = Math.ceil(Math.sqrt(N));
-          const ix = i%side, iz = Math.floor(i/side);
-          x = (ix/side - 0.5) * R*1.8;
-          const d = Math.sqrt((ix-side/2)**2 + (iz-side/2)**2);
-          y = (iz/side - 0.5) * R*1.4 + Math.sin(d*0.4 + t*2)*8;
-          break;
-        }
-        case 'dna': {
-          const a = tt*5*Math.PI*2 + (i%2)*Math.PI + t;
-          x = Math.cos(a)*R*0.35;
-          y = (tt-0.5)*R*2;
-          break;
-        }
-        case 'cube': {
-          const s = R*0.7;
-          const edges=12;
-          const e = i%edges, k = Math.floor(i/edges)/(N/edges);
-          const pts=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
-          const connect=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
-          const [a,b]=connect[e], A=pts[a], B=pts[b];
-          const rot=t*0.4;
-          const px=A[0]+(B[0]-A[0])*k, py=A[1]+(B[1]-A[1])*k, pz=A[2]+(B[2]-A[2])*k;
-          x = (px*Math.cos(rot) - pz*Math.sin(rot)) * s;
-          y = py * s * 0.8;
-          break;
-        }
-        case 'galaxy': {
-          const arm = i%4;
-          const ang = tt*Math.PI*4 + (arm/4)*Math.PI*2 + t*0.3;
-          const r = 6 + tt*R*0.9;
-          x = Math.cos(ang)*r;
-          y = Math.sin(ang)*r*0.4;
-          break;
-        }
-        case 'heart': {
-          const th = tt*Math.PI*2;
-          const hx = 16*Math.pow(Math.sin(th),3);
-          const hy = -(13*Math.cos(th)-5*Math.cos(2*th)-2*Math.cos(3*th)-Math.cos(4*th));
-          const scl = R * 0.04;
-          x = hx * scl; y = hy * scl;
-          break;
-        }
-        case 'bear': {
-          // Kawaii face: 2 small eye voids + 6-point smile arc + ears. No snout.
-          // Canvas y is down-positive; eyes upper (-y), mouth lower (+y).
-          const MOUTH_PTS = 6;
-          const remaining = N - MOUTH_PTS;
-          const nHead = Math.round(remaining * 0.80);
-          const nEar1 = Math.round(remaining * 0.10);
-          const nEar2 = remaining - nHead - nEar1;
-          if (i >= N - MOUTH_PTS) {
-            // Mouth: 6-point gentle smile arc
-            const m = i - (N - MOUTH_PTS);
-            x = [-0.214, -0.119, -0.048, 0.048, 0.119, 0.214][m] * R;
-            y = [ 0.429,  0.500,  0.524, 0.524, 0.500, 0.429][m] * R;
-          } else if (i >= nHead + nEar1) {
-            // Right ear
-            const k = i - (nHead + nEar1);
-            const cnt = Math.max(1, nEar2);
-            const ttL = (k + 0.5) / cnt;
-            const theta = k * 2.399963 + t * 0.3;
-            x =  0.667*R + Math.sqrt(ttL) * 0.333 * R * Math.cos(theta);
-            y = -0.857*R + Math.sqrt(ttL) * 0.333 * R * Math.sin(theta);
-          } else if (i >= nHead) {
-            // Left ear
-            const k = i - nHead;
-            const cnt = Math.max(1, nEar1);
-            const ttL = (k + 0.5) / cnt;
-            const theta = k * 2.399963 + t * 0.3;
-            x = -0.667*R + Math.sqrt(ttL) * 0.333 * R * Math.cos(theta);
-            y = -0.857*R + Math.sqrt(ttL) * 0.333 * R * Math.sin(theta);
-          } else {
-            // Head with rejection on small eye voids only
-            const voids = [
-              { cx: -0.286*R, cy: -0.143*R, r: 0.095*R }, // left eye (small)
-              { cx:  0.286*R, cy: -0.143*R, r: 0.095*R }, // right eye (small)
-            ];
-            const HEAD_SAMPLES = Math.ceil(nHead * 1.15);
-            let placed = 0;
-            for (let k = 0; k < HEAD_SAMPLES * 2; k++) {
-              const tt2 = (k + 0.5) / HEAD_SAMPLES;
-              if (tt2 > 1) break;
-              const th = k * 2.399963 + t * 0.3;
-              const rr = Math.sqrt(tt2) * R;
-              const px = rr * Math.cos(th);
-              const py = rr * Math.sin(th);
-              let inVoid = false;
-              for (const v of voids) {
-                if (Math.hypot(px - v.cx, py - v.cy) < v.r) { inVoid = true; break; }
-              }
-              if (!inVoid) {
-                if (placed === i) { x = px; y = py; break; }
-                placed++;
-              }
-            }
-          }
-          break;
-        }
-      }
-      // rotate + easing pulse on point size
-      const sz = (2 + Math.sin(i*0.3 + t*2)*0.8) * pulseScale;
-      ctx.globalAlpha = 0.8;
+    // Project all drones with depth, then paint back-to-front
+    const points = [];
+    for (let i = 0; i < N_draw; i++) {
+      const wx = targets[i*3];
+      const wy = targets[i*3+1] + altOffset;
+      const wz = targets[i*3+2];
+      const rx = wx * cosR + wz * sinR;
+      const rz = -wx * sinR + wz * cosR;
+      const persp = camDist / Math.max(1, camDist - rz);
+      const sx = cx + rx * scale * persp;
+      const sy = cy - (wy - worldCenter) * scale * persp;
+      points.push({ sx, sy, depth: rz, persp, i });
+    }
+    points.sort((a, b) => a.depth - b.depth);
+
+    for (const p of points) {
+      ctx.fillStyle = (ov && p.i % 4 === 0) ? accentColor : baseColor;
+      const twinkle = 0.7 + Math.sin(p.i * 0.3 + rotY * 2) * 0.3;
+      const sz = 1.9 * pulseSz * twinkle * Math.max(0.55, p.persp);
+      ctx.globalAlpha = 0.85;
       ctx.beginPath();
-      ctx.arc(cx + x, cy + y, sz, 0, Math.PI*2);
+      ctx.arc(p.sx, p.sy, sz, 0, Math.PI*2);
       ctx.fill();
     }
-    // subtle glow layer
-    ctx.globalAlpha = 0.15;
-    ctx.filter = 'blur(6px)';
+
+    // Soft glow (adds volumetric feel similar to AdditiveBlending in show.js)
+    ctx.globalAlpha = 0.18;
+    ctx.filter = 'blur(5px)';
     ctx.drawImage(c, 0, 0, W, H);
     ctx.filter = 'none';
   }, [formation, time]);
 
   return <canvas ref={canvasRef} style={{width:'100%',height:'100%'}}/>;
 }
+
 
 function Choreo() {
   const [selIdx, setSelIdx] = useState(0);
