@@ -1,0 +1,213 @@
+const { useState, useMemo } = React;
+
+// Month of April 2026 — deliberate schedule of shows, rehearsals, and maintenance
+const EVENTS = {
+  '2026-04-03': { type:'rehearsal', title:'予行演習', venue:'葛飾・小合溜', time:'19:30', duration:35, drones:400 },
+  '2026-04-10': { type:'show', title:'春の宴 / Haru no Utage', venue:'横浜みなとみらい', time:'20:00', duration:18, drones:660, audience:120000, weather:{temp:14, wind:3.1, visibility:'良好', humidity:58} },
+  '2026-04-11': { type:'show', title:'春の宴 (2日目)', venue:'横浜みなとみらい', time:'20:00', duration:18, drones:660, audience:120000 },
+  '2026-04-14': { type:'maint', title:'定期整備', venue:'倉庫 B-02', time:'09:00', notes:'AS-100〜AS-200 点検' },
+  '2026-04-18': { type:'rehearsal', title:'本番前リハ', venue:'東京湾・お台場沖', time:'21:00', duration:22, drones:660 },
+  '2026-04-19': { type:'rehearsal', title:'技術確認', venue:'東京湾・お台場沖', time:'21:00', duration:22, drones:660 },
+  '2026-04-28': { type:'show', title:'東京湾の星座', venue:'東京湾・お台場沖', time:'19:00', duration:22, drones:660, audience:180000, weather:{temp:16, wind:2.4, visibility:'良好', humidity:52} },
+  '2026-04-29': { type:'show', title:'東京湾の星座 (昭和の日)', venue:'東京湾・お台場沖', time:'19:00', duration:22, drones:660, audience:200000 },
+  '2026-05-03': { type:'show', title:'Golden Week 特別公演', venue:'大阪・万博記念公園', time:'19:30', duration:24, drones:660, audience:95000 },
+};
+
+const CREW = [
+  { name:'青木 律', role:'Flight Director', initials:'AK', color:'#31a9c7', status:'CONFIRMED' },
+  { name:'佐藤 美咲', role:'Choreographer', initials:'MS', color:'#d429e0', status:'CONFIRMED' },
+  { name:'ライアン・ホール', role:'Safety Officer', initials:'RH', color:'#ffb347', status:'CONFIRMED' },
+  { name:'田中 健', role:'Ground Ops Lead', initials:'TK', color:'#98ff9e', status:'CONFIRMED' },
+  { name:'小林 陽子', role:'Music Sync', initials:'KY', color:'#ff69b4', status:'PENDING' },
+];
+
+const CHECKLIST = [
+  { label:'航空局飛行許可 (DID区域)', done:true, note:'No. 2026-0428-T' },
+  { label:'気象予報確認（H-72）', done:true },
+  { label:'会場入構許可（港湾局）', done:true },
+  { label:'全機バッテリー校正', done:true, note:'660/660' },
+  { label:'音響システム同期テスト', done:false, warn:true, note:'H-6 予定' },
+  { label:'観客動線・警備計画', done:false },
+  { label:'緊急着陸ゾーン確認', done:false },
+  { label:'保険付保確認', done:true },
+];
+
+const TYPE_META = {
+  show: { jp:'本番', chip:'#31a9c7', dot:'●' },
+  rehearsal: { jp:'リハ', chip:'#ffb347', dot:'●' },
+  maint: { jp:'整備', chip:'#ef4444', dot:'●' },
+};
+
+const DOW_JP = ['日','月','火','水','木','金','土'];
+const DOW_EN = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+
+function keyFor(y, m, d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+
+function Schedule() {
+  const [year] = useState(2026);
+  const [month] = useState(3); // April (0-indexed)
+  const [selDate, setSelDate] = useState('2026-04-28');
+
+  const cells = useMemo(() => {
+    const first = new Date(year, month, 1);
+    const startDow = first.getDay();
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    const prevDays = new Date(year, month, 0).getDate();
+    const out = [];
+    for (let i = 0; i < startDow; i++) {
+      out.push({ day: prevDays - startDow + 1 + i, key: keyFor(year, month-1, prevDays - startDow + 1 + i), other:true });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      out.push({ day:d, key: keyFor(year, month, d) });
+    }
+    while (out.length % 7 !== 0) {
+      const d = out.length - startDow - daysInMonth + 1;
+      out.push({ day:d, key: keyFor(year, month+1, d), other:true });
+    }
+    return out;
+  }, [year, month]);
+
+  const selEvent = EVENTS[selDate];
+  const todayKey = '2026-04-19';
+
+  return (
+    <>
+      <div className="sc-head">
+        <div>
+          <div className="jp">運航スケジュール</div>
+          <div className="en">Flight Schedule — Spring Season 2026</div>
+        </div>
+        <div className="sc-actions">
+          <button className="sc-btn">クルー招集</button>
+          <button className="sc-btn">CSV書出</button>
+          <button className="sc-btn primary">+ 公演を追加</button>
+        </div>
+      </div>
+
+      <div className="sc-body">
+        <div className="sc-cal">
+          <div className="cal-nav">
+            <div className="cal-month">2026年 4月<span className="en">April · Spring</span></div>
+            <div className="cal-arrows">
+              <button className="cal-arr">‹</button>
+              <button className="cal-arr">今月</button>
+              <button className="cal-arr">›</button>
+            </div>
+          </div>
+
+          <div className="cal-grid">
+            {DOW_JP.map((d, i) => (
+              <div key={d} className={`cal-dow ${i===0?'sun':''} ${i===6?'sat':''}`}>{d} · {DOW_EN[i]}</div>
+            ))}
+            {cells.map((c, i) => {
+              const ev = EVENTS[c.key];
+              return (
+                <div
+                  key={i}
+                  className={`cal-cell ${c.other?'other':''} ${c.key===todayKey?'today':''} ${c.key===selDate?'selected':''}`}
+                  onClick={() => !c.other && setSelDate(c.key)}
+                >
+                  <div className="cal-day">{c.day}</div>
+                  {ev && (
+                    <div className="cal-events">
+                      <div className={`cal-ev ${ev.type}`}>{ev.time} · {ev.title}</div>
+                    </div>
+                  )}
+                  {ev && ev.type === 'show' && (
+                    <div className="cal-weather" title="晴れ">☾</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="sc-drawer">
+          {selEvent ? (
+            <>
+              <div className="dr-date">
+                4月{parseInt(selDate.slice(-2))}日<span className="dow">{DOW_JP[new Date(selDate).getDay()]}曜日</span>
+              </div>
+              <div className="dr-sub">{selDate} · {TYPE_META[selEvent.type].jp}</div>
+
+              <div className="ev-card">
+                <div className="ev-time">{selEvent.time}{selEvent.duration?` — ${selEvent.duration}分`:''}</div>
+                <div className="ev-title">{selEvent.title}</div>
+                <div className="ev-venue">📍 {selEvent.venue}</div>
+                <div className="ev-meta">
+                  {selEvent.drones && <span>Drones<b>{selEvent.drones}</b></span>}
+                  {selEvent.audience && <span>観客<b>{(selEvent.audience/10000).toFixed(1)}万</b></span>}
+                </div>
+              </div>
+
+              {selEvent.weather && (
+                <div className="sect">
+                  <div className="sect-head"><span>Weather Forecast</span><span className="jp">天候予報</span></div>
+                  <div className="wx-panel">
+                    <div className="wx-item"><div className="wx-k">Temp</div><div className="wx-v">{selEvent.weather.temp}°</div></div>
+                    <div className="wx-item"><div className="wx-k">Wind</div><div className="wx-v ok">{selEvent.weather.wind}<span style={{fontSize:10,color:'var(--text-3)'}}> m/s</span></div></div>
+                    <div className="wx-item"><div className="wx-k">Vis</div><div className="wx-v ok" style={{fontSize:13}}>{selEvent.weather.visibility}</div></div>
+                    <div className="wx-item"><div className="wx-k">Hum</div><div className="wx-v">{selEvent.weather.humidity}%</div></div>
+                  </div>
+                </div>
+              )}
+
+              <div className="sect">
+                <div className="sect-head"><span>Programme</span><span className="jp">演目</span></div>
+                <div className="row"><span className="l">振付</span><span className="v">東京湾の星座 v2.4</span></div>
+                <div className="row"><span className="l">フォーメーション</span><span className="v">9 formations</span></div>
+                <div className="row"><span className="l">音楽</span><span className="v">宵の口 — 久石譲 (120 BPM)</span></div>
+                <div className="row"><span className="l">花火同期</span><span className="v">あり · 3箇所</span></div>
+              </div>
+
+              <div className="sect">
+                <div className="sect-head"><span>Crew · {CREW.length} people</span><span className="jp">当日クルー</span></div>
+                {CREW.map(c => (
+                  <div key={c.name} className="crew-row">
+                    <div className="crew-ava" style={{background:c.color}}>{c.initials}</div>
+                    <div className="crew-info">
+                      <div className="crew-name">{c.name}</div>
+                      <div className="crew-role">{c.role}</div>
+                    </div>
+                    <div className="crew-status" style={{color: c.status==='CONFIRMED'?'var(--ok)':'var(--warn)'}}>{c.status}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="sect">
+                <div className="sect-head"><span>Pre-flight Checklist</span><span className="jp">離陸前確認</span></div>
+                <div className="checklist">
+                  {CHECKLIST.map((ci, i) => (
+                    <div key={i} className={`check-item ${ci.done?'done':''}`}>
+                      <div className={`check-box ${ci.done?'on':''} ${ci.warn?'warn':''}`}>{ci.done?'✓':ci.warn?'!':''}</div>
+                      <div style={{flex:1}}>
+                        <div>{ci.label}</div>
+                        {ci.note && <div style={{fontSize:10, color:'var(--text-3)', fontFamily:'var(--mono)', letterSpacing:'0.04em', marginTop:2}}>{ci.note}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{marginTop:12, fontSize:11, color:'var(--text-3)', fontFamily:'"Poppins",sans-serif', letterSpacing:'0.14em'}}>
+                  5 / {CHECKLIST.length} 完了 · H-240h
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="dr-date">4月{parseInt(selDate.slice(-2))}日</div>
+              <div className="dr-sub">{selDate} · 予定なし</div>
+              <div style={{marginTop:40, padding:'40px 20px', textAlign:'center', border:'1px dashed var(--hair)', borderRadius:10, color:'var(--text-3)', fontSize:13, lineHeight:1.8}}>
+                <div style={{fontSize:32, opacity:0.3, marginBottom:10}}>○</div>
+                この日は運航予定がありません<br/>
+                <span style={{fontFamily:'"Poppins",sans-serif', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:'var(--text-3)'}}>No events scheduled</span>
+              </div>
+              <button className="sc-btn primary" style={{marginTop:20, width:'100%'}}>+ この日に公演を追加</button>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('sc-root')).render(<Schedule />);

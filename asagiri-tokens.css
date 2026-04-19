@@ -1,0 +1,310 @@
+/**
+ * Asagiri Design System — Colors & Type
+ *
+ * Mirrors scss/Tokens/_Color.scss and scss/_Typography.scss from
+ * BoxPistols/asagiri for use in static HTML artifacts without
+ * needing the full compiled framework.
+ */
+
+/* ==========================================================
+   COLOR TOKENS — LIGHT (default)
+   ========================================================== */
+:root {
+  /* Brand core */
+  --color-default: #0d5d8f;
+  --color-moonstone: #31a9c7; /* "Asagiri" primary — a soft cyan */
+  --color-hotpink: #ff69b4;
+
+  /* Primary (HSLA — manipulable) */
+  --primary-h: 191;
+  --primary-s: 47%;
+  --primary-l: 53%;
+  --primary-alpha: 100%;
+  --color-primary:       hsla(var(--primary-h), var(--primary-s), var(--primary-l), var(--primary-alpha));
+  --color-primary-light: hsla(var(--primary-h), var(--primary-s), calc(var(--primary-l) + 15%), var(--primary-alpha));
+  --color-primary-dark:  hsla(var(--primary-h), var(--primary-s), calc(var(--primary-l) - 15%), var(--primary-alpha));
+
+  /* Secondary (HSLA) */
+  --secondary-h: 224;
+  --secondary-s: 23%;
+  --secondary-l: 44%;
+  --secondary-alpha: 100%;
+  --color-secondary:       hsla(var(--secondary-h), var(--secondary-s), var(--secondary-l), var(--secondary-alpha));
+  --color-secondary-light: hsla(var(--secondary-h), var(--secondary-s), calc(var(--secondary-l) + 15%), var(--secondary-alpha));
+  --color-secondary-dark:  hsla(var(--secondary-h), var(--secondary-s), calc(var(--secondary-l) - 15%), var(--secondary-alpha));
+
+  /* Foreground / text */
+  --fg1: #393d43;           /* body text paragraph */
+  --fg2: #4c5059;           /* primary text */
+  --fg3: #666;              /* secondary */
+  --fg-muted: #6c757d;
+  --fg-code: #1f2937;
+  --color-text: var(--fg2);
+  --color-text-p: var(--fg1);
+  --color-text-secondary: var(--fg3);
+  --color-text-muted: var(--fg-muted);
+  --color-text-code: var(--fg-code);
+  --color-text-a: #1867b5;
+  --color-text-a-hover: #1976d2;
+  --color-text-a-visited: #35206a;
+
+  /* Backgrounds */
+  --bg1: #f9f9f9;           /* page bg */
+  --bg2: #fff;              /* box/card */
+  --bg3: #e8e8f1;           /* item bg */
+  --color-bg: var(--bg1);
+  --color-box: var(--bg2);
+  --color-item-bg: var(--bg3);
+  --color-item-bg-light: #e8e8f1cc;
+  --color-item-bg-dark: #5c5c63;
+  --color-bg-code: #f0f0f0;
+  --color-bg-footer: #f9f9f9;
+  --color-bg-strong: #fff996;
+  --color-bg-btn: #1976d2;
+  --color-bg-cancel: #92989f;
+
+  /* Semantic / functional */
+  --color-accent: #d429e0;
+  --color-accent-dark: #b923b9;
+  --color-accent-light: #e858f0;
+  --color-success: #00a859;
+  --color-success-dark: #008c4e;
+  --color-success-light: #00d9a6;
+  --color-warning: #ebbb0c;
+  --color-warning-dark: #d99e00;
+  --color-warning-light: #f5e854;
+  --color-danger: #e1323c;
+  --color-danger-dark: #c82727;
+  --color-danger-light: #f8a7a7;
+  --color-info: #1ec2c2;
+  --color-info-dark: #1a9fa2;
+  --color-info-light: #4de5e5;
+
+  /* Elegant (brand tertiary) */
+  --color-elegant: #48626f;
+  --color-elegant-dark: #3c4a57;
+  --color-elegant-light: #6c818c;
+
+  /* Neutrals */
+  --color-white: #ffffff;
+  --color-ghost: #f8f8ff;
+  --color-black: #1d1d1d;
+  --color-dark: #1d1d1d;
+  --color-dark-dark: #0f0f0f;
+  --color-dark-light: #2f2f2f;
+  --color-light: #f4f5f6;
+  --color-light-dark: #d1d1d1;
+  --color-light-light: #e1e1e1;
+  --color-gray: #9ca8b3;
+  --color-gray-dark: #606c76;
+  --color-gray-light: #f4f5f6;
+
+  /* Borders */
+  --color-border: rgba(0, 0, 0, 0.2);
+  --color-border-light: rgba(0, 0, 0, 0.1);
+  --color-border-dark: rgba(0, 0, 0, 0.3);
+
+  /* Shadows / elevation */
+  --box-shadow: 0.1rem 0.2rem 1rem rgba(0, 0, 0, 0.08);
+  --text-shadow: 0 0 2px var(--color-black);
+  --elevation-0: none;
+  --elevation-1: 0 1px 2px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.12), 0 1px 1px -1px rgba(0,0,0,0.06);
+  --elevation-2: 0 2px 4px -1px rgba(0,0,0,0.08), 0 3px 5px rgba(0,0,0,0.12), 0 1px 8px rgba(0,0,0,0.06);
+  --elevation-3: 0 3px 5px -1px rgba(0,0,0,0.08), 0 6px 10px rgba(0,0,0,0.12), 0 1px 14px rgba(0,0,0,0.06);
+  --elevation-4: 0 5px 6px -3px rgba(0,0,0,0.08), 0 8px 15px 1px rgba(0,0,0,0.12), 0 3px 20px 2px rgba(0,0,0,0.06);
+  --elevation-5: 0 8px 10px -6px rgba(0,0,0,0.08), 0 16px 24px 2px rgba(0,0,0,0.12), 0 6px 32px 5px rgba(0,0,0,0.06);
+
+  /* Radii */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-pill: 9999px;
+  --border-radius: 0.375rem;
+  --border-radius-all: 0.4rem;
+
+  /* Spacing (4px baseline → 0.25rem step) */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+  --spacing-grid: 1.5rem; /* asagiri's default section/container gutter */
+
+  /* Widths */
+  --max-width: 1440px;
+  --inner-width: 960px;
+
+  /* Components */
+  --global-component-height: 2.8rem;
+  --global-component-line-height: 2.6rem;
+
+  /* Type families
+     Asagiri uses system stacks; Poppins is used for the "design-font-en"
+     accent style. We declare Japanese system fallbacks that match the
+     original _Typography.scss comments.
+  */
+  --font-sans: "Helvetica Neue", Arial, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+               "BIZ UDPGothic", "Yu Gothic Medium", Meiryo, sans-serif;
+  --font-mincho: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", serif;
+  --font-design: "Poppins", sans-serif;    /* English accent / hotpink */
+  --font-mono: "SF Mono", "Monaco", "Menlo", "Consolas", "Courier New", monospace;
+}
+
+/* ==========================================================
+   COLOR TOKENS — DARK
+   ========================================================== */
+[data-theme="dark"] {
+  --primary-l: 65%;
+  --secondary-l: 60%;
+
+  --fg1: #d4d4d8;
+  --fg2: #e4e4e7;
+  --fg3: #a1a1aa;
+  --fg-muted: #9ca3af;
+  --fg-code: #e4e4e7;
+
+  --bg1: #0f0f0f;
+  --bg2: #18181b;
+  --bg3: #1f1f23;
+  --color-bg-code: #1e1e1e;
+  --color-bg-footer: #0a0a0a;
+  --color-bg-btn: #2563eb;
+  --color-bg-cancel: #52525b;
+
+  --color-text-a: #60a5fa;
+  --color-text-a-hover: #93c5fd;
+  --color-text-a-visited: #a78bfa;
+
+  --color-accent:  #e879f9;
+  --color-accent-dark: #c026d3;
+  --color-accent-light: #f0abfc;
+  --color-success: #22c55e;
+  --color-success-dark: #16a34a;
+  --color-success-light: #4ade80;
+  --color-warning: #fbbf24;
+  --color-warning-dark: #f59e0b;
+  --color-warning-light: #fde047;
+  --color-danger:  #ef4444;
+  --color-danger-dark: #dc2626;
+  --color-danger-light: #f87171;
+  --color-info:    #22d3ee;
+  --color-info-dark: #06b6d4;
+  --color-info-light: #67e8f9;
+
+  --color-elegant: #94a3b8;
+  --color-elegant-dark: #64748b;
+  --color-elegant-light: #cbd5e1;
+
+  --color-gray: #71717a;
+  --color-gray-dark: #52525b;
+  --color-gray-light: #3f3f46;
+
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-light: rgba(255, 255, 255, 0.05);
+  --color-border-dark: rgba(255, 255, 255, 0.2);
+
+  --box-shadow: 0.1rem 0.2rem 1rem rgba(0,0,0,0.5);
+  --elevation-1: 0 1px 2px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.35);
+  --elevation-2: 0 2px 4px -1px rgba(0,0,0,0.25), 0 3px 5px rgba(0,0,0,0.35);
+  --elevation-3: 0 3px 5px -1px rgba(0,0,0,0.25), 0 6px 10px rgba(0,0,0,0.35);
+  --elevation-4: 0 5px 6px -3px rgba(0,0,0,0.25), 0 8px 15px 1px rgba(0,0,0,0.35);
+  --elevation-5: 0 8px 10px -6px rgba(0,0,0,0.25), 0 16px 24px 2px rgba(0,0,0,0.35);
+}
+
+/* ==========================================================
+   TYPOGRAPHY — base + semantic
+   Fluid type with clamp() matching asagiri's _Typography.scss
+   ========================================================== */
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-bg);
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+h1, h2, h3, h4, h5, h6,
+.head-1, .head-2, .head-3, .head-4, .head-5, .head-6 {
+  margin: 0.4em 0 0.2em;
+  letter-spacing: -0.1rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+h1, .head-1 { font-size: clamp(2rem, 5vw + 1rem, 3.2rem);   line-height: 1.2; }
+h2, .head-2 { font-size: clamp(1.75rem, 4vw + 0.5rem, 2.4rem); line-height: 1.25; }
+h3, .head-3 { font-size: clamp(1.5rem, 3vw + 0.5rem, 2rem); line-height: 1.3; }
+h4, .head-4 { font-size: clamp(1.25rem, 2vw + 0.5rem, 1.4rem); line-height: 1.35; letter-spacing: -0.08rem; }
+h5, .head-5 { font-size: clamp(1.1rem, 1.5vw + 0.5rem, 1.2rem); line-height: 1.5; letter-spacing: -0.05rem; }
+h6, .head-6 { font-size: clamp(1rem, 1vw + 0.5rem, 1rem);  line-height: 1.4; letter-spacing: 0; }
+
+p {
+  margin: 0;
+  line-height: 1.35;
+  color: var(--color-text-p);
+}
+
+small, .text-sm { font-size: 0.875rem; }
+.text-xs { font-size: 0.75rem; }
+.text-muted { color: var(--color-text-muted); }
+
+b, strong { font-weight: 700; }
+.semibold { font-weight: 500; }
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+a:hover, a:focus { color: var(--color-secondary); }
+
+code, pre, kbd, samp {
+  font-family: var(--font-mono);
+  font-size: 0.9375em;
+  color: var(--color-text-code);
+}
+pre {
+  background: var(--color-bg-code);
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  line-height: 1.5;
+}
+code:not(pre code) {
+  background: var(--color-bg-code);
+  padding: 0.15em 0.4em;
+  border-radius: var(--radius-sm);
+}
+
+blockquote {
+  margin: 1em 0;
+  padding: 1em 1.5em;
+  border-left: 0.3em solid var(--color-border);
+  font-size: 0.95rem;
+  color: var(--color-text-p);
+}
+blockquote *:last-child { margin-bottom: 0; }
+
+hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 0.1rem solid var(--color-border-light);
+}
+
+/* Asagiri's signature accent — English display type in hotpink */
+.design-font-en {
+  font-family: var(--font-design);
+  letter-spacing: 0.02rem;
+  color: var(--color-hotpink);
+}
+h1.design-font-en {
+  width: fit-content;
+  border-bottom: 1px dashed currentColor;
+}

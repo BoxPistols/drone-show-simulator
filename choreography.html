@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>振付 / Choreography — Asagiri</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="asagiri-tokens.css">
+<link rel="stylesheet" href="app-chrome.css">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Shippori+Mincho:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+.ch-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ch-head {
+  padding: 24px 32px 18px;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  border-bottom: 1px solid var(--hair);
+}
+.ch-head .jp { font-family: var(--mincho); font-size: 26px; letter-spacing: 0.08em; font-weight:500; }
+.ch-head .en { font-family:"Poppins",sans-serif; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--pink); margin-top:4px; }
+.ch-meta { display:flex; gap:24px; align-items:flex-end; }
+.ch-meta .k { font-family:"Poppins",sans-serif; font-size:9px; letter-spacing:0.22em; text-transform:uppercase; color:var(--text-3); }
+.ch-meta .v { font-family:"Poppins",sans-serif; font-size:20px; font-variant-numeric:tabular-nums; }
+.ch-actions { display:flex; gap:8px; }
+.ch-btn {
+  padding:8px 14px; border-radius:8px; border:1px solid var(--hair);
+  background: rgba(255,255,255,0.04); color: var(--text-1);
+  font-size:12px; cursor:pointer; font-family: var(--mincho); letter-spacing:0.06em;
+  transition: all 0.15s;
+}
+.ch-btn:hover { background: rgba(255,255,255,0.08); color:#fff; }
+.ch-btn.primary { background: var(--moon); color:#02030a; border-color:var(--moon); font-weight:500; }
+.ch-btn.primary:hover { filter:brightness(1.08); }
+.ch-btn.ghost { background: transparent; }
+
+.ch-body { flex:1; display:flex; overflow:hidden; }
+.ch-left {
+  width: 280px;
+  border-right: 1px solid var(--hair);
+  overflow: auto;
+  background: rgba(255,255,255,0.01);
+}
+.ch-list-head {
+  padding: 14px 20px 10px;
+  font-family:"Poppins",sans-serif; font-size:9px;
+  letter-spacing:0.22em; text-transform:uppercase; color:var(--text-3);
+  display:flex; justify-content:space-between; align-items:baseline;
+}
+.ch-list-head .jp { font-family: var(--mincho); font-size:11px; letter-spacing:0.14em; text-transform:none; color:var(--text-2); }
+.form-item {
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.form-item:hover { background: rgba(255,255,255,0.03); }
+.form-item.active { background: var(--moon-dim); border-left: 2px solid var(--moon); padding-left: 18px; }
+.fi-num {
+  width: 30px; height: 30px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px;
+  font-family: "Poppins", sans-serif;
+  font-size: 11px;
+  color: var(--text-1);
+  display: grid; place-items: center;
+  font-variant-numeric: tabular-nums;
+}
+.form-item.active .fi-num { background: var(--moon); color: #02030a; font-weight:500; }
+.fi-jp { font-family: var(--mincho); font-size: 14px; color: var(--text-0); letter-spacing: 0.04em; }
+.fi-en { font-family:"Poppins",sans-serif; font-size:9px; color:var(--text-3); letter-spacing:0.14em; text-transform:uppercase; margin-top:2px; }
+.fi-dur { font-family: var(--mono); font-size: 11px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+
+.ch-center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ch-preview {
+  flex: 1;
+  position: relative;
+  background: radial-gradient(ellipse at center, #0e1530, #02030a);
+  overflow: hidden;
+  min-height: 200px;
+}
+.ch-preview canvas { display: block; width: 100%; height: 100%; }
+.ch-preview-ui {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 40px;
+}
+.cp-label {
+  font-family: var(--mincho);
+  font-size: 28px;
+  color: #fff;
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+  flex-shrink: 0;
+}
+.cp-label .en {
+  display: block;
+  font-family: "Poppins",sans-serif;
+  font-size: 10px;
+  color: var(--moon);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.cp-counter {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 0.2em;
+}
+
+/* Timeline */
+.ch-timeline {
+  height: 180px;
+  border-top: 1px solid var(--hair);
+  background: rgba(255,255,255,0.02);
+  display: flex;
+  flex-direction: column;
+}
+.tl-head {
+  padding: 10px 20px;
+  display: flex; justify-content: space-between;
+  border-bottom: 1px solid var(--hair);
+  align-items: center;
+}
+.tl-title { font-family: var(--mincho); font-size:13px; color: var(--text-1); letter-spacing: 0.1em; }
+.tl-title .en { color: var(--text-3); font-family:"Poppins",sans-serif; font-size:9px; margin-left:8px; letter-spacing: 0.22em; text-transform: uppercase; }
+.tl-time { font-family: var(--mono); font-size: 12px; color: var(--text-1); font-variant-numeric: tabular-nums; letter-spacing: 0.08em; }
+
+.tl-tracks {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  padding: 10px 20px;
+}
+.tl-ruler {
+  position: relative;
+  height: 20px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.tl-tick {
+  position: absolute; top: 0; bottom: 0;
+  border-left: 1px solid rgba(255,255,255,0.08);
+  font-family: var(--mono); font-size: 9px; color: var(--text-3);
+  padding-left: 3px;
+}
+.tl-row {
+  position: relative;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.tl-row-label {
+  position: absolute; left: -70px; top: 50%; transform: translateY(-50%);
+  font-family: var(--mincho); font-size: 10px; color: var(--text-2);
+  letter-spacing: 0.06em;
+}
+.tl-block {
+  position: absolute; top: 4px; bottom: 4px;
+  border-radius: 5px;
+  display: flex; align-items: center; padding: 0 8px;
+  font-size: 10px; font-family: var(--mincho);
+  color: rgba(0,0,0,0.7); font-weight: 500;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.tl-block:hover { filter: brightness(1.15); }
+.tl-block.active { box-shadow: 0 0 0 2px #fff, 0 4px 16px rgba(49,169,199,0.5); z-index: 2; }
+.tl-playhead {
+  position: absolute; top: 0; bottom: 0;
+  width: 2px; background: var(--pink);
+  box-shadow: 0 0 8px var(--pink);
+  pointer-events: none;
+  z-index: 3;
+}
+.tl-playhead::before {
+  content: ""; position: absolute;
+  top: -4px; left: -5px;
+  width: 12px; height: 8px;
+  background: var(--pink);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.tl-transport {
+  padding: 8px 20px;
+  display: flex; gap: 6px; align-items: center;
+  border-top: 1px solid var(--hair);
+}
+.tl-tbtn {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: transparent; border: none; color: var(--text-1);
+  cursor: pointer; display: grid; place-items: center;
+}
+.tl-tbtn:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.tl-tbtn.play { background: var(--moon); color: #02030a; width: 36px; height: 36px; }
+
+/* Right panel — formation params */
+.ch-right {
+  width: 340px;
+  border-left: 1px solid var(--hair);
+  overflow: auto;
+  background: var(--panel);
+  padding: 24px 24px 32px;
+}
+.cr-title {
+  font-family: var(--mincho);
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+.cr-title .num {
+  font-family:"Poppins",sans-serif;
+  color: var(--text-3);
+  font-size: 14px;
+  margin-right: 8px;
+}
+.cr-sub {
+  font-family:"Poppins",sans-serif; font-size:10px;
+  letter-spacing:0.22em; text-transform:uppercase;
+  color: var(--moon); margin-bottom: 20px;
+}
+.cr-section { margin-bottom: 22px; }
+.cr-sec-head {
+  font-family:"Poppins",sans-serif; font-size:9px;
+  letter-spacing:0.22em; text-transform:uppercase;
+  color: var(--text-3); margin-bottom: 10px;
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.cr-sec-head .jp { font-family: var(--mincho); font-size: 11px; letter-spacing:0.14em; text-transform:none; color: var(--text-2); }
+
+.cr-field { margin-bottom: 12px; }
+.cr-label {
+  display: flex; justify-content: space-between;
+  font-size: 11.5px; color: var(--text-2); margin-bottom: 6px;
+}
+.cr-label .val { color: var(--text-0); font-family: var(--mono); font-size: 11px; }
+.cr-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px;
+  background: rgba(255,255,255,0.1); border-radius: 2px; outline: none;
+}
+.cr-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--moon); cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(49,169,199,0.2);
+}
+.cr-seg { display: flex; gap: 0; background: rgba(255,255,255,0.03); border:1px solid var(--hair); border-radius: 8px; padding: 2px; }
+.cr-seg button {
+  flex: 1; border: none; background: transparent;
+  color: var(--text-2); padding: 7px 8px; border-radius: 6px;
+  font-size: 11px; cursor: pointer; font-family: var(--mincho); letter-spacing: 0.04em;
+  transition: all 0.15s;
+}
+.cr-seg button.on { background: var(--moon); color: #02030a; }
+.cr-swatches { display: flex; gap: 6px; }
+.cr-sw {
+  width: 26px; height: 26px; border-radius: 6px;
+  border: 2px solid transparent; cursor: pointer; transition: all 0.12s;
+}
+.cr-sw.on { border-color: #fff; transform: scale(1.08); }
+
+.cr-dronecount {
+  display: flex; justify-content: space-between;
+  padding: 10px 12px;
+  background: rgba(49,169,199,0.08);
+  border: 1px solid rgba(49,169,199,0.2);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.cr-dronecount .l { color: var(--text-2); }
+.cr-dronecount .v { font-family:"Poppins",sans-serif; color: #fff; font-weight:500; }
+
+.music-track {
+  height: 36px;
+  background: linear-gradient(90deg, rgba(212,41,224,0.12), rgba(49,169,199,0.12));
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.music-track svg { width: 100%; height: 100%; display:block; }
+</style>
+</head>
+<body class="ops">
+
+<nav class="app-nav">
+  <div class="nav-brand">
+    <div class="nav-mark"><svg width="18" height="18" viewBox="0 0 22 22"><path d="M11 3 L18 18 L14 18 L11 11 L8 18 L4 18 Z" fill="#fff"/></svg></div>
+    <div class="nav-brand-text"><div class="jp">朝霧</div><div class="en">ASAGIRI OPS</div></div>
+  </div>
+  <a class="nav-item" href="drone-show.html"><span class="jp">観賞</span><span class="en">Show</span></a>
+  <a class="nav-item" href="fleet.html"><span class="jp">機体管理</span><span class="en">Fleet</span></a>
+  <a class="nav-item active" href="choreography.html"><span class="jp">振付</span><span class="en">Choreo</span></a>
+  <a class="nav-item" href="schedule.html"><span class="jp">運航</span><span class="en">Schedule</span></a>
+  <div class="nav-spacer"></div>
+  <div class="nav-user">
+    <div class="nav-user-avatar">AK</div>
+    <div class="nav-user-text"><div class="jp">青木 律</div><div class="en">FLIGHT DIRECTOR</div></div>
+  </div>
+</nav>
+
+<div class="ops-wrap">
+  <div class="ch-main" id="ch-root"></div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="choreography.jsx"></script>
+</body>
+</html>

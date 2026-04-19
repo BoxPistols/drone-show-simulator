@@ -1,0 +1,180 @@
+/* Shared app chrome — nav + common surfaces */
+:root {
+  --ink: rgba(10, 14, 28, 0.72);
+  --ink-strong: rgba(8, 11, 22, 0.92);
+  --ink-solid: #0b0f1f;
+  --panel: #10162a;
+  --panel-2: #151c32;
+  --hair: rgba(255,255,255,0.08);
+  --hair-2: rgba(255,255,255,0.14);
+  --text-0: #f4f6fb;
+  --text-1: rgba(255,255,255,0.78);
+  --text-2: rgba(255,255,255,0.55);
+  --text-3: rgba(255,255,255,0.32);
+  --moon: #31a9c7;
+  --moon-dim: rgba(49,169,199,0.18);
+  --pink: #ff69b4;
+  --indigo: #5b21b6;
+  --ok: #22c55e;
+  --warn: #fbbf24;
+  --err: #ef4444;
+  --mincho: "Shippori Mincho", "Yu Mincho", serif;
+  --mono: "SF Mono", Monaco, Menlo, Consolas, monospace;
+}
+
+/* ==== Top Nav ==== */
+.app-nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 56px;
+  background: rgba(8, 11, 22, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--hair);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  z-index: 100;
+  gap: 4px;
+}
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 18px;
+  margin-right: 8px;
+  border-right: 1px solid var(--hair);
+  height: 100%;
+}
+.nav-mark {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #31a9c7, #5b21b6);
+  display: grid; place-items: center;
+}
+.nav-brand-text { line-height: 1.1; }
+.nav-brand-text .jp {
+  font-family: var(--mincho);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  color: #fff;
+}
+.nav-brand-text .en {
+  font-family: "Poppins", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.28em;
+  color: var(--pink);
+  margin-top: 2px;
+}
+.nav-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 16px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--text-2);
+  text-decoration: none;
+  align-self: center;
+  transition: all 0.15s;
+  font-size: 13px;
+}
+.nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text-1); }
+.nav-item.active {
+  background: var(--moon-dim);
+  color: #fff;
+}
+.nav-item .jp {
+  font-family: var(--mincho);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+.nav-item .en {
+  font-family: "Poppins", sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.nav-item.active .en { color: rgba(49,169,199,0.9); }
+.nav-spacer { flex: 1; }
+
+.nav-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(225, 50, 60, 0.12);
+  border: 1px solid rgba(225, 50, 60, 0.35);
+  color: #ff8b91;
+  border-radius: 100px;
+  font-family: "Poppins", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-right: 12px;
+}
+.nav-live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
+  animation: nav-pulse 1.8s ease-in-out infinite;
+}
+@keyframes nav-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 12px;
+  border-left: 1px solid var(--hair);
+  height: 100%;
+}
+.nav-user-avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6ed3e6, #d429e0);
+  color: #02030a;
+  font-family: "Poppins", sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  display: grid; place-items: center;
+  letter-spacing: 0.06em;
+}
+.nav-user-text { line-height: 1.15; }
+.nav-user-text .jp {
+  font-family: var(--mincho);
+  font-size: 12px;
+  color: var(--text-0);
+  letter-spacing: 0.04em;
+}
+.nav-user-text .en {
+  font-family: "Poppins", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* ==== Ops layout ==== */
+html, body {
+  margin: 0; padding: 0;
+  height: 100%;
+  background: var(--ink-solid);
+  color: var(--text-0);
+  font-family: "Helvetica Neue", Arial, "Hiragino Sans", "BIZ UDPGothic", sans-serif;
+  overflow: hidden;
+}
+* { box-sizing: border-box; }
+body.ops {
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(91,33,182,0.08), transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(49,169,199,0.06), transparent 50%),
+    var(--ink-solid);
+}
+.ops-wrap {
+  position: fixed;
+  top: 56px; left: 0; right: 0; bottom: 0;
+  display: flex;
+  overflow: hidden;
+}
