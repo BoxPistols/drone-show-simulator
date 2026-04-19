@@ -174,6 +174,35 @@ function Choreo() {
     setFormations(fs => fs.map((f,i) => i===selIdx ? {...f, ...patch} : f));
   };
 
+  // --- Mock interactions ---
+  const [toast, setToast] = useState('');
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(t => t === msg ? '' : t), 2400);
+  };
+  const onExport = () => {
+    const blob = new Blob([JSON.stringify(formations, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'astra-flock-programme.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast(`書出完了: ${formations.length} 演目 → astra-flock-programme.json`);
+  };
+  const onSimulate = () => {
+    setPlaying(true); setTime(0);
+    showToast('シミュ実行: タイムラインを先頭から再生');
+  };
+  const onSave = () => {
+    try { localStorage.setItem('astra-flock-programme', JSON.stringify(formations)); } catch(e){}
+    showToast(`保存: ${formations.length} 演目を localStorage に記録 (mock)`);
+  };
+  const onMusicSeek = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    setTime(ratio * totalDur);
+  };
+
   return (
     <>
       <div className="ch-head">
@@ -186,9 +215,9 @@ function Choreo() {
           <div><div className="k">Duration</div><div className="v">{fmt(totalDur)}</div></div>
           <div><div className="k">Drones</div><div className="v">660</div></div>
           <div className="ch-actions">
-            <button className="ch-btn ghost">書出 .json</button>
-            <button className="ch-btn">シミュ実行</button>
-            <button className="ch-btn primary">保存</button>
+            <button className="ch-btn ghost" onClick={onExport}>書出 .json</button>
+            <button className="ch-btn" onClick={onSimulate}>シミュ実行</button>
+            <button className="ch-btn primary" onClick={onSave}>保存</button>
           </div>
         </div>
       </div>
@@ -247,8 +276,8 @@ function Choreo() {
                 })}
                 <div className="tl-playhead" style={{left: (time/totalDur)*100+'%'}}/>
               </div>
-              <div style={{fontFamily:'var(--mincho)', fontSize:10, color:'var(--text-3)', marginTop: 4, letterSpacing:'0.08em'}}>音楽トラック ・ Music</div>
-              <div className="music-track">
+              <div style={{fontFamily:'var(--mincho)', fontSize:10, color:'var(--text-3)', marginTop: 4, letterSpacing:'0.08em'}}>音楽トラック ・ Music <span style={{color:'var(--text-3)',fontSize:9,marginLeft:6}}>(click でシーク)</span></div>
+              <div className="music-track" onClick={onMusicSeek} style={{cursor:'pointer'}} title="Click to seek">
                 <svg viewBox="0 0 800 36" preserveAspectRatio="none">
                   {Array.from({length:200},(_,i)=>{
                     const h = 6 + Math.abs(Math.sin(i*0.27)*Math.cos(i*0.11))*24;
@@ -340,6 +369,17 @@ function Choreo() {
           </div>
         </div>
       </div>
+      {toast && (
+        <div style={{
+          position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)',
+          background:'rgba(8,11,22,0.94)', color:'#fff',
+          padding:'12px 22px', borderRadius:10,
+          border:'1px solid rgba(49,169,199,0.35)',
+          fontFamily:'var(--mincho)', fontSize:13, letterSpacing:'0.06em',
+          boxShadow:'0 16px 40px rgba(0,0,0,0.5)',
+          zIndex:100, pointerEvents:'none'
+        }}>{toast}</div>
+      )}
     </>
   );
 }

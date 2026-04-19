@@ -92,7 +92,7 @@ function FormationAssignPreview({ slot }) {
   );
 }
 
-function DroneDrawer({ drone, onClose }) {
+function DroneDrawer({ drone, onClose, onAction }) {
   if (!drone) return null;
   const meta = STATUS_META[drone.status];
   return (
@@ -149,10 +149,10 @@ function DroneDrawer({ drone, onClose }) {
       </div>
 
       <div className="drw-actions">
-        <button className="drw-btn primary">テスト起動</button>
-        <button className="drw-btn">再校正</button>
-        <button className="drw-btn">ログ書出</button>
-        <button className="drw-btn danger">整備に切替</button>
+        <button className="drw-btn primary" onClick={()=>onAction('test', drone)}>テスト起動</button>
+        <button className="drw-btn" onClick={()=>onAction('recalibrate', drone)}>再校正</button>
+        <button className="drw-btn" onClick={()=>onAction('exportLog', drone)}>ログ書出</button>
+        <button className="drw-btn danger" onClick={()=>onAction('maint', drone)}>整備に切替</button>
       </div>
     </div>
   );
@@ -181,6 +181,46 @@ function Fleet() {
   }, [allDrones, filter, q]);
 
   const selected = selId ? allDrones.find(d => d.id === selId) : null;
+
+  // --- Mock interactions ---
+  const [toast, setToast] = useState('');
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(t => t === msg ? '' : t), 2400);
+  };
+  const onDroneAction = (kind, drone) => {
+    switch (kind) {
+      case 'test':
+        showToast(`${drone.id}: テスト起動シーケンス開始 (mock)`);
+        break;
+      case 'recalibrate':
+        showToast(`${drone.id}: IMU / GPS 再校正中… (mock)`);
+        break;
+      case 'exportLog': {
+        const rows = [
+          `# ${drone.id} flight log (mock)`,
+          `model=${drone.model}`,
+          `firmware=${drone.firmware}`,
+          `battery=${drone.bat}%`,
+          `rssi=${drone.rssi}dBm`,
+          `temp=${drone.temp}°C`,
+          `flights=${drone.flights}`,
+          `hours=${drone.hours}h`,
+        ].join('\n');
+        const blob = new Blob([rows], {type:'text/plain'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `${drone.id}.log`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast(`${drone.id}: ログを書出しました`);
+        break;
+      }
+      case 'maint':
+        showToast(`${drone.id}: 整備ステータスに切替えました (mock)`);
+        break;
+    }
+  };
 
   return (
     <>
@@ -289,8 +329,19 @@ function Fleet() {
             </table>
           )}
         </div>
-        {selected && <DroneDrawer drone={selected} onClose={()=>setSelId(null)} />}
+        {selected && <DroneDrawer drone={selected} onClose={()=>setSelId(null)} onAction={onDroneAction} />}
       </div>
+      {toast && (
+        <div style={{
+          position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)',
+          background:'rgba(8,11,22,0.94)', color:'#fff',
+          padding:'12px 22px', borderRadius:10,
+          border:'1px solid rgba(49,169,199,0.35)',
+          fontFamily:'var(--mincho)', fontSize:13, letterSpacing:'0.06em',
+          boxShadow:'0 16px 40px rgba(0,0,0,0.5)',
+          zIndex:100, pointerEvents:'none'
+        }}>{toast}</div>
+      )}
     </>
   );
 }

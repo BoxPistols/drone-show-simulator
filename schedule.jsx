@@ -43,10 +43,47 @@ const DOW_EN = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
 
 function keyFor(y, m, d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
 
+const MONTH_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
 function Schedule() {
-  const [year] = useState(2026);
-  const [month] = useState(3); // April (0-indexed)
+  const [year, setYear] = useState(2026);
+  const [month, setMonth] = useState(3); // April (0-indexed)
   const [selDate, setSelDate] = useState('2026-04-28');
+
+  // --- Mock interactions ---
+  const [toast, setToast] = useState('');
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(t => t === msg ? '' : t), 2400);
+  };
+  const goPrevMonth = () => {
+    if (month === 0) { setMonth(11); setYear(y => y - 1); }
+    else setMonth(m => m - 1);
+  };
+  const goNextMonth = () => {
+    if (month === 11) { setMonth(0); setYear(y => y + 1); }
+    else setMonth(m => m + 1);
+  };
+  const goToday = () => {
+    setYear(2026); setMonth(3); setSelDate('2026-04-19');
+    showToast('今日 (2026-04-19) に移動');
+  };
+  const onInviteCrew = () => showToast(`クルー ${CREW.length} 名に招集通知を送信 (mock)`);
+  const onExportCsv = () => {
+    const header = 'date,type,title,venue,time,duration,drones,audience';
+    const rows = Object.entries(EVENTS).map(([d,e]) =>
+      [d, e.type, e.title, e.venue, e.time, e.duration||'', e.drones||'', e.audience||''].join(',')
+    );
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'astra-flock-schedule.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast(`CSV 書出: ${rows.length} 公演 → astra-flock-schedule.csv`);
+  };
+  const onAddEvent = () => showToast('新規公演フォーム (mock) — 未接続');
 
   const cells = useMemo(() => {
     const first = new Date(year, month, 1);
@@ -78,20 +115,20 @@ function Schedule() {
           <div className="en">Flight Schedule — Spring Season 2026</div>
         </div>
         <div className="sc-actions">
-          <button className="sc-btn">クルー招集</button>
-          <button className="sc-btn">CSV書出</button>
-          <button className="sc-btn primary">+ 公演を追加</button>
+          <button className="sc-btn" onClick={onInviteCrew}>クルー招集</button>
+          <button className="sc-btn" onClick={onExportCsv}>CSV書出</button>
+          <button className="sc-btn primary" onClick={onAddEvent}>+ 公演を追加</button>
         </div>
       </div>
 
       <div className="sc-body">
         <div className="sc-cal">
           <div className="cal-nav">
-            <div className="cal-month">2026年 4月<span className="en">April · Spring</span></div>
+            <div className="cal-month">{year}年 {month+1}月<span className="en">{MONTH_EN[month]}</span></div>
             <div className="cal-arrows">
-              <button className="cal-arr">‹</button>
-              <button className="cal-arr">今月</button>
-              <button className="cal-arr">›</button>
+              <button className="cal-arr" onClick={goPrevMonth} title="前の月">‹</button>
+              <button className="cal-arr" onClick={goToday} title="今日">今月</button>
+              <button className="cal-arr" onClick={goNextMonth} title="次の月">›</button>
             </div>
           </div>
 
@@ -201,11 +238,22 @@ function Schedule() {
                 この日は運航予定がありません<br/>
                 <span style={{fontFamily:'"Poppins",sans-serif', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:'var(--text-3)'}}>No events scheduled</span>
               </div>
-              <button className="sc-btn primary" style={{marginTop:20, width:'100%'}}>+ この日に公演を追加</button>
+              <button className="sc-btn primary" style={{marginTop:20, width:'100%'}} onClick={onAddEvent}>+ この日に公演を追加</button>
             </>
           )}
         </div>
       </div>
+      {toast && (
+        <div style={{
+          position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)',
+          background:'rgba(8,11,22,0.94)', color:'#fff',
+          padding:'12px 22px', borderRadius:10,
+          border:'1px solid rgba(49,169,199,0.35)',
+          fontFamily:'var(--mincho)', fontSize:13, letterSpacing:'0.06em',
+          boxShadow:'0 16px 40px rgba(0,0,0,0.5)',
+          zIndex:100, pointerEvents:'none'
+        }}>{toast}</div>
+      )}
     </>
   );
 }
