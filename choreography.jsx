@@ -298,10 +298,15 @@ function Choreo() {
   const saveCurrentAs = () => {
     const name = presetName.trim();
     if (!name) return;
+    // 既存名なら上書き確認 (silent overwrite でプリセットが消えるのを防ぐ)
+    if (presets[name] && !window.confirm(`"${name}" は既に存在します。上書きしますか?`)) {
+      return;
+    }
     const next = { ...presets, [name]: { savedAt: Date.now(), formations } };
     writePresets(next);
     setPresetName('');
-    showToast(`プリセット保存: "${name}"`);
+    const verb = presets[name] ? '上書き' : '保存';
+    showToast(`プリセット${verb}: "${name}"`);
   };
   const loadPreset = (name) => {
     const p = presets[name];
