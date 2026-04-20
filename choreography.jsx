@@ -293,13 +293,26 @@ function Choreo() {
     setTimeout(() => setToast(t => t === msg ? '' : t), 2400);
   };
   const onExport = () => {
-    const blob = new Blob([JSON.stringify(formations, null, 2)], {type:'application/json'});
+    // Phase 3-J: show 全体 (formations + BPM + audio metadata) を version 付きで書出
+    const payload = {
+      schema: 'astra-flock-show/1',
+      exportedAt: new Date().toISOString(),
+      meta: {
+        bpm,
+        fleet: { total: FLEET_TOTAL, available: FLEET_AVAILABLE },
+      },
+      audio: audio ? { name: audio.name, duration: audio.duration } : null,
+      formations,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'astra-flock-programme.json';
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    a.href = url; a.download = `astra-flock-show-${stamp}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast(`書出完了: ${formations.length} 演目 → astra-flock-programme.json`);
+    const audioTag = audio ? ` + 音源 meta` : '';
+    showToast(`書出完了: ${formations.length} 演目 + BPM${audioTag}`);
   };
   const fileInputRef = useRef();
   const onImportClick = () => fileInputRef.current?.click();
@@ -310,8 +323,25 @@ function Choreo() {
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result);
-        if (!Array.isArray(data) || data.length === 0) {
-          showToast('不正なファイル: 配列が空か、配列でない');
+        // Phase 3-J: 3 format 受付可能
+        //   (A) 旧形式: formations の配列そのまま
+        //   (B) 新形式 v1: { schema, formations, meta: {bpm}, audio }
+        //   (C) preset: { savedAt, formations } (named-presets の single preset)
+        let formationsArr;
+        let importedBpm = null;
+        let audioMetaMsg = '';
+        if (Array.isArray(data)) {
+          formationsArr = data;
+        } else if (data.formations && Array.isArray(data.formations)) {
+          formationsArr = data.formations;
+          if (typeof data.meta?.bpm === 'number') importedBpm = data.meta.bpm;
+          if (data.audio?.name) audioMetaMsg = ` ・音源ヒント: ${data.audio.name}`;
+        } else {
+          showToast('不正なファイル: 認識できるフォーマットではありません');
+          return;
+        }
+        if (formationsArr.length === 0) {
+          showToast('不正なファイル: 演目が空');
           return;
         }
         // 旧形式 (typeId/_uid なし) と新形式どちらも受けられるよう正規化
@@ -319,7 +349,7 @@ function Choreo() {
         // Preview で空点群になる → sphere にフォールバック
         const knownIds = new Set(window.AstraFlock?.FORMATIONS?.map(f => f.id) || []);
         let fallbackCount = 0;
-        const normalized = data.map((f, i) => {
+        const normalized = formationsArr.map((f, i) => {
           if (!f || !f.id) throw new Error(`演目 #${i+1} に id がありません`);
           const rawType = f.typeId || f.id;
           const typeId = knownIds.has(rawType) ? rawType : 'sphere';
@@ -345,8 +375,10 @@ function Choreo() {
         setSelIdx(0);
         seekTo(0);
         setAddPickerOpen(false);
+        if (importedBpm !== null) setBpm(Math.max(30, Math.min(300, importedBpm)));
         const warning = fallbackCount > 0 ? ` ・${fallbackCount} 件は未知形状を sphere にフォールバック` : '';
-        showToast(`読込完了: ${normalized.length} 演目${warning}`);
+        const bpmMsg = importedBpm !== null ? ` ・BPM=${importedBpm}` : '';
+        showToast(`読込完了: ${normalized.length} 演目${bpmMsg}${audioMetaMsg}${warning}`);
       } catch (err) {
         showToast('読込エラー: ' + err.message);
       } finally {
