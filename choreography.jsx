@@ -9,7 +9,7 @@ const FORMATIONS = [
   { id:'cube',    jp:'立方体',    en:'Wireframe Cube',       dur:34, color:'#ff69b4', drones:660, desc:'12本のエッジ上に配置。' },
   { id:'galaxy',  jp:'銀河',      en:'Spiral Galaxy',        dur:48, color:'#c5b3ff', drones:660, desc:'四本腕の渦巻銀河。' },
   { id:'heart',   jp:'心臓',      en:'Pulse of Love',        dur:32, color:'#ff6b7a', drones:660, desc:'パラメトリック心臓形。' },
-  { id:'bear',    jp:'熊',        en:'Bear Silhouette',      dur:54, color:'#d4915c', drones:660, desc:'クマの顔のクローズアップ。頭 + 2 つの耳。フィナーレ。' },
+  { id:'bear',    jp:'熊',        en:'Bear Silhouette',      dur:54, color:'#d4915c', drones:660, desc:'クマの顔アップ。頭 + 耳 + 離れた目 + マズル (鼻と口)。フィナーレ。' },
 ];
 const EASING = ['Linear','Ease-in','Ease-out','Ease-both','Elastic'];
 const PALETTES = [

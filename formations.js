@@ -140,39 +140,51 @@
     return out;
   }
   function fBear(n) {
-    // Rilakkuma-style kawaii bear face: wide oval head + rounded ears +
-    // big eye dots (voids) + tiny nose void + subtle M-shaped mouth drones.
+    // Rilakkuma-style kawaii bear face with muzzle.
+    // - Head: wide ellipse (rx=50, ry=42)
+    // - Eyes: 2 circular voids, wider apart + lower = childlike proportions
+    // - Muzzle: horizontal ellipse void (negative space = lighter patch)
+    // - Inside muzzle: nose (3 dots triangle) + mouth (4 dots curve) as positive drones
+    // - Ears: 2 rounded discs, bigger + wider-positioned
     const out = new Float32Array(n * 3);
-    // Head is an ELLIPSE (wider than tall) for that signature round-oval silhouette
-    const head = { cx: 0, cy: 0, rx: 48, ry: 38 };
+    const head = { cx: 0, cy: 0, rx: 50, ry: 42 };
     const voids = [
-      { cx: -16, cy: 4,  r: 5.5 }, // left eye (big, well-spaced)
-      { cx:  16, cy: 4,  r: 5.5 }, // right eye
-      { cx:   0, cy: -6, r: 2.5 }, // tiny nose dot
+      { cx: -20, cy: -5, r: 6 }, // left eye — wider + lower
+      { cx:  20, cy: -5, r: 6 }, // right eye
     ];
+    // Muzzle = elliptical void, the signature "light muzzle patch"
+    const muzzle = { cx: 0, cy: -19, rx: 14, ry: 11 };
     const ears = [
-      { cx: -32, cy: 30, r: 15 },  // larger, wider-positioned
-      { cx:  32, cy: 30, r: 15 },
+      { cx: -36, cy: 32, r: 16 },
+      { cx:  36, cy: 32, r: 16 },
     ];
-    // M-shaped mouth under the nose (6 points, two tiny v's)
+    // Nose: 3-point inverted triangle at top of muzzle
+    const nose = [
+      { x: -2.5, y: -13 }, { x:  2.5, y: -13 }, { x: 0, y: -17 },
+    ];
+    // Mouth: gentle U-curve below nose
     const mouth = [
-      { x: -5, y: -15 }, { x: -3, y: -18 }, { x: -1, y: -15 },
-      { x:  1, y: -15 }, { x:  3, y: -18 }, { x:  5, y: -15 },
+      { x: -4, y: -23 }, { x: -1.5, y: -25 },
+      { x:  1.5, y: -25 }, { x:  4, y: -23 },
     ];
-    // Ellipse area: π·rx·ry
+    const features = [...nose, ...mouth]; // 7 drones
+
     const headArea = Math.PI * head.rx * head.ry;
-    const voidArea = voids.reduce((s, v) => s + Math.PI * v.r * v.r, 0);
-    const earArea  = Math.PI * ears[0].r * ears[0].r;
-    const fillableHead = Math.max(0, headArea - voidArea);
-    const totalFill = fillableHead + 2 * earArea;
-    const remaining = n - mouth.length;
+    const eyeVoidArea = voids.reduce((s, v) => s + Math.PI * v.r * v.r, 0);
+    const muzzleArea  = Math.PI * muzzle.rx * muzzle.ry;
+    const totalVoid   = eyeVoidArea + muzzleArea;
+    const earArea     = Math.PI * ears[0].r * ears[0].r;
+    const fillableHead = Math.max(0, headArea - totalVoid);
+    const totalFill   = fillableHead + 2 * earArea;
+    const remaining   = n - features.length;
     const nHead  = Math.round(remaining * fillableHead / totalFill);
     const nEar1  = Math.round(remaining * earArea / totalFill);
     const nEar2  = remaining - nHead - nEar1;
     const GOLDEN = 2.399963229728653;
     let idx = 0;
-    // Head: Fibonacci unit disc → mapped to ellipse via (rx,ry) scaling
-    const HEAD_SAMPLES = Math.ceil(nHead * 1.2);
+
+    // Head: Fibonacci unit disc → mapped to ellipse via (rx, ry). Reject voids + muzzle.
+    const HEAD_SAMPLES = Math.ceil(nHead * 1.25);
     let placed = 0;
     for (let k = 0; k < HEAD_SAMPLES && placed < nHead; k++) {
       const t = (k + 0.5) / HEAD_SAMPLES;
@@ -184,12 +196,18 @@
       for (const v of voids) {
         if (Math.hypot(px - v.cx, py - v.cy) < v.r) { inVoid = true; break; }
       }
+      if (!inVoid) {
+        const mx = (px - muzzle.cx) / muzzle.rx;
+        const my = (py - muzzle.cy) / muzzle.ry;
+        if (mx * mx + my * my < 1) inVoid = true;
+      }
       if (inVoid) continue;
       out[idx*3]   = head.cx + px;
       out[idx*3+1] = 60 + head.cy + py;
       out[idx*3+2] = (Math.random() - 0.5) * 3;
       idx++; placed++;
     }
+    // Ears
     for (let e = 0; e < 2; e++) {
       const ear = ears[e];
       const count = e === 0 ? nEar1 : nEar2;
@@ -203,10 +221,11 @@
         idx++;
       }
     }
-    for (const m of mouth) {
+    // Nose + mouth: positive drones INSIDE the muzzle void — shows up as isolated features
+    for (const p of features) {
       if (idx >= n) break;
-      out[idx*3]   = m.x;
-      out[idx*3+1] = 60 + m.y;
+      out[idx*3]   = p.x;
+      out[idx*3+1] = 60 + p.y;
       out[idx*3+2] = (Math.random() - 0.5) * 2;
       idx++;
     }
@@ -226,7 +245,7 @@
     { id:'cube',    jp:'立方体',    en:'Wireframe Cube',     desc:'12本のエッジ上に55機ずつ配置。辺と頂点だけで、立方体の輪郭を空中に描く。',               dur:34, fn:fCube,        color:'#ff69b4' },
     { id:'galaxy',  jp:'銀河',     en:'Spiral Galaxy',      desc:'四本腕の渦巻銀河。中心から外縁へ、660個の恒星がゆるやかに渦を巻く。',                    dur:48, fn:fGalaxy,      color:'#c5b3ff' },
     { id:'heart',   jp:'心臓',     en:'Pulse of Love',      desc:'パラメトリック方程式による心臓形。フィナーレに向けた、観客への静かな挨拶。',               dur:32, fn:fHeart,       color:'#ff6b7a' },
-    { id:'bear',    jp:'熊',       en:'Bear Silhouette',    desc:'最終演目。クマの顔のクローズアップ。大きな頭と二つの丸い耳が夜空から観客を見下ろす。',        dur:54, fn:fBear,        color:'#d4915c' },
+    { id:'bear',    jp:'熊',       en:'Bear Silhouette',    desc:'最終演目。クマの顔のクローズアップ。大きな頭 + 丸い耳 + 離れた目 + マズル (鼻と口) を備えた幼い表情。',   dur:54, fn:fBear,        color:'#d4915c' },
   ];
 
   FORMATIONS.forEach(f => { f.targets = f.fn(DRONE_COUNT); });
