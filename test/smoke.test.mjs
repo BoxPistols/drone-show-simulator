@@ -19,12 +19,15 @@ test('drone-show.html has canvas root + brand + scripts', () => {
   assert.match(html, /integrity="sha384-/, 'CDN resources need SRI');
 });
 
-test('choreography.html loads formations.js before choreography.jsx', () => {
+test('choreography.html loads formations.js + show-schema.js before choreography.jsx', () => {
   const html = read('choreography.html');
   const idxForm = html.indexOf('formations.js');
+  const idxSchema = html.indexOf('show-schema.js');
   const idxChor = html.indexOf('choreography.jsx');
   assert.ok(idxForm > 0, 'formations.js must be referenced');
+  assert.ok(idxSchema > 0, 'show-schema.js must be referenced');
   assert.ok(idxForm < idxChor, 'formations.js must load before choreography.jsx');
+  assert.ok(idxSchema < idxChor, 'show-schema.js must load before choreography.jsx');
 });
 
 test('fleet.html also loads shared formations.js', () => {
@@ -78,7 +81,7 @@ test('critical assets exist', () => {
   const required = [
     'favicon.svg', 'favicon-16.png', 'favicon-32.png', 'apple-touch-icon.png',
     'og-image.png', 'tokens.css', 'app-chrome.css',
-    'formations.js', 'show.js',
+    'formations.js', 'show-schema.js', 'show.js',
     'choreography.jsx', 'fleet.jsx', 'schedule.jsx',
   ];
   for (const f of required) {

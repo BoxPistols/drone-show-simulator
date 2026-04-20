@@ -374,61 +374,21 @@ function Choreo() {
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result);
-        // Phase 3-J: 3 format 受付可能
-        //   (A) 旧形式: formations の配列そのまま
-        //   (B) 新形式 v1: { schema, formations, meta: {bpm}, audio }
-        //   (C) preset: { savedAt, formations } (named-presets の single preset)
-        let formationsArr;
-        let importedBpm = null;
-        let audioMetaMsg = '';
-        if (Array.isArray(data)) {
-          formationsArr = data;
-        } else if (data.formations && Array.isArray(data.formations)) {
-          formationsArr = data.formations;
-          if (typeof data.meta?.bpm === 'number') importedBpm = data.meta.bpm;
-          if (data.audio?.name) audioMetaMsg = ` ・音源ヒント: ${data.audio.name}`;
-        } else {
-          showToast('不正なファイル: 認識できるフォーマットではありません');
-          return;
-        }
-        if (formationsArr.length === 0) {
-          showToast('不正なファイル: 演目が空');
-          return;
-        }
-        // 旧形式 (typeId/_uid なし) と新形式どちらも受けられるよう正規化
-        // 未知の typeId は window.AstraFlock.FORMATIONS に shape 関数がないため
-        // Preview で空点群になる → sphere にフォールバック
-        const knownIds = new Set(window.AstraFlock?.FORMATIONS?.map(f => f.id) || []);
-        let fallbackCount = 0;
-        const normalized = formationsArr.map((f, i) => {
-          if (!f || !f.id) throw new Error(`演目 #${i+1} に id がありません`);
-          const rawType = f.typeId || f.id;
-          const typeId = knownIds.has(rawType) ? rawType : 'sphere';
-          if (typeId !== rawType) fallbackCount++;
-          return {
-            ...f,
-            typeId,
-            _uid: `imported-${Date.now()}-${i}`,
-            easing: f.easing || 'Ease-both',
-            paletteOverride: f.paletteOverride ?? null,
-            altitude: typeof f.altitude === 'number' ? f.altitude : 60,
-            spread: typeof f.spread === 'number' ? f.spread : 55,
-            speed: typeof f.speed === 'number' ? f.speed : 1.0,
-            drones: typeof f.drones === 'number' ? f.drones : 660,
-            dur: typeof f.dur === 'number' ? f.dur : 30,
-            jp: f.jp || '新規',
-            en: f.en || 'New',
-            color: f.color || '#6ed3e6',
-            desc: f.desc || '',
-          };
-        });
+        // show-schema.js の normalizeShow() に委譲 (test/show-schema.test.mjs で検証済)
+        const knownIds = window.AstraFlock?.FORMATIONS?.map(f => f.id) || [];
+        const res = window.AstraFlockSchema.normalizeShow(data, knownIds);
+        if (!res.ok) { showToast('不正なファイル: ' + res.error); return; }
+        // React key 用 _uid はここで付与 (schema は純粋関数のため _uid は含めない)
+        const stamp = Date.now();
+        const normalized = res.formations.map((f, i) => ({ ...f, _uid: `imported-${stamp}-${i}` }));
         setFormations(normalized);
         setSelIdx(0);
         seekTo(0);
         setAddPickerOpen(false);
-        if (importedBpm !== null) setBpm(Math.max(30, Math.min(300, importedBpm)));
-        const warning = fallbackCount > 0 ? ` ・${fallbackCount} 件は未知形状を sphere にフォールバック` : '';
-        const bpmMsg = importedBpm !== null ? ` ・BPM=${importedBpm}` : '';
+        if (res.bpm !== null) setBpm(res.bpm);
+        const audioMetaMsg = res.audio?.name ? ` ・音源ヒント: ${res.audio.name}` : '';
+        const warning = res.fallbackCount > 0 ? ` ・${res.fallbackCount} 件は未知形状を sphere にフォールバック` : '';
+        const bpmMsg = res.bpm !== null ? ` ・BPM=${res.bpm}` : '';
         showToast(`読込完了: ${normalized.length} 演目${bpmMsg}${audioMetaMsg}${warning}`);
       } catch (err) {
         showToast('読込エラー: ' + err.message);
