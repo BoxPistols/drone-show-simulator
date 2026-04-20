@@ -303,6 +303,52 @@ function Choreo() {
     try { localStorage.setItem('astra-flock-programme', JSON.stringify(formations)); } catch(e){}
     showToast(`保存: ${formations.length} 演目を localStorage に記録 (mock)`);
   };
+
+  // --- Named presets in localStorage ---
+  const PRESETS_KEY = 'astra-flock-presets';
+  const [presets, setPresets] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '{}'); }
+    catch (e) { return {}; }
+  });
+  const [presetPanelOpen, setPresetPanelOpen] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const writePresets = (next) => {
+    try { localStorage.setItem(PRESETS_KEY, JSON.stringify(next)); } catch (e) {}
+    setPresets(next);
+  };
+  const saveCurrentAs = () => {
+    const name = presetName.trim();
+    if (!name) return;
+    // 既存名なら上書き確認 (silent overwrite でプリセットが消えるのを防ぐ)
+    if (presets[name] && !window.confirm(`"${name}" は既に存在します。上書きしますか?`)) {
+      return;
+    }
+    const next = { ...presets, [name]: { savedAt: Date.now(), formations } };
+    writePresets(next);
+    setPresetName('');
+    const verb = presets[name] ? '上書き' : '保存';
+    showToast(`プリセット${verb}: "${name}"`);
+  };
+  const loadPreset = (name) => {
+    const p = presets[name];
+    if (!p || !Array.isArray(p.formations)) return;
+    const restored = p.formations.map((f, i) => ({
+      ...f,
+      typeId: f.typeId || f.id,
+      _uid: `preset-${Date.now()}-${i}`,
+    }));
+    setFormations(restored);
+    setSelIdx(0);
+    setTime(0);
+    setPresetPanelOpen(false);
+    showToast(`読込: "${name}" (${restored.length} 演目)`);
+  };
+  const deletePreset = (name) => {
+    const next = { ...presets };
+    delete next[name];
+    writePresets(next);
+    showToast(`削除: "${name}"`);
+  };
   const onMusicSeek = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -321,6 +367,7 @@ function Choreo() {
           <div><div className="k">Duration</div><div className="v">{fmt(totalDur)}</div></div>
           <div><div className="k">Drones</div><div className="v">660</div></div>
           <div className="ch-actions">
+            <button className="ch-btn ghost" onClick={()=>setPresetPanelOpen(true)}>プリセット</button>
             <button className="ch-btn ghost" onClick={onImportClick}>読込 .json</button>
             <button className="ch-btn ghost" onClick={onExport}>書出 .json</button>
             <button className="ch-btn" onClick={onSimulate}>シミュ実行</button>
@@ -500,6 +547,42 @@ function Choreo() {
           </div>
         </div>
       </div>
+      {presetPanelOpen && (
+        <div className="preset-modal" role="dialog" aria-label="プリセット管理"
+             onClick={e => e.target === e.currentTarget && setPresetPanelOpen(false)}>
+          <div className="pm-panel">
+            <div className="pm-header">
+              <div className="pm-title">プリセット<span className="en">Presets</span></div>
+              <button className="pm-close" onClick={()=>setPresetPanelOpen(false)} aria-label="閉じる">×</button>
+            </div>
+            <div className="pm-save">
+              <input type="text" className="pm-input" placeholder="プリセット名を入力..."
+                     value={presetName} onChange={e=>setPresetName(e.target.value)}
+                     onKeyDown={e => e.key === 'Enter' && saveCurrentAs()}
+                     aria-label="プリセット名"/>
+              <button className="pm-btn primary" onClick={saveCurrentAs} disabled={!presetName.trim()}>現在を保存</button>
+            </div>
+            <div className="pm-list">
+              {Object.keys(presets).length === 0 ? (
+                <div className="pm-empty">まだ保存されたプリセットはありません</div>
+              ) : Object.entries(presets).sort((a,b) => b[1].savedAt - a[1].savedAt).map(([name, p]) => (
+                <div key={name} className="pm-item">
+                  <div className="pm-item-info">
+                    <div className="pm-name">{name}</div>
+                    <div className="pm-meta">
+                      {p.formations?.length || 0} 演目 ・ {new Date(p.savedAt).toLocaleString('ja-JP', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'})}
+                    </div>
+                  </div>
+                  <div className="pm-actions">
+                    <button className="pm-btn" onClick={()=>loadPreset(name)}>読込</button>
+                    <button className="pm-btn danger" onClick={()=>deletePreset(name)} aria-label={`${name} を削除`}>✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {toast && (
         <div style={{
           position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)',
