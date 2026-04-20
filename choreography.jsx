@@ -355,8 +355,11 @@ function Choreo() {
         }
         samples[i] = peak;
       }
+      // 音源読込直後の即再生を防ぐ (プレビュー再生中に upload すると曲途中から
+      // 意図せず鳴り出すのを回避)。ユーザーが明示的に再生を押すまで待機。
+      setPlaying(false);
       setAudio({ name: file.name, duration: audioBuffer.duration, samples, buffer: audioBuffer });
-      showToast(`音源読込: ${file.name} (${Math.round(audioBuffer.duration)}s)`);
+      showToast(`音源読込: ${file.name} (${Math.round(audioBuffer.duration)}s) ・ 再生で同期開始`);
     } catch (err) {
       showToast('音源読込エラー: ' + err.message);
     } finally {
