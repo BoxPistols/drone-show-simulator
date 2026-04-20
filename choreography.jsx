@@ -179,12 +179,57 @@ function Choreo() {
   const sel = formations[selIdx];
   const localTime = time - starts[selIdx];
 
+  // --- Undo / Redo history ---
+  // 離散アクション (CRUD / reorder / import / preset) のスナップショットを保持。
+  // slider 連続更新 (updateSel) は含めない (スタック爆発を避ける)。
+  const [history, setHistory] = useState({ past: [], future: [] });
+  const HISTORY_LIMIT = 50;
+  const pushHistory = () => {
+    setHistory(h => {
+      const past = [...h.past, formations];
+      return { past: past.slice(-HISTORY_LIMIT), future: [] };
+    });
+  };
+  const undo = () => {
+    if (history.past.length === 0) { showToast('戻る履歴がありません'); return; }
+    const last = history.past[history.past.length - 1];
+    setHistory(h => ({
+      past: h.past.slice(0, -1),
+      future: [formations, ...h.future].slice(0, HISTORY_LIMIT),
+    }));
+    setFormations(last);
+    showToast(`↶ 元に戻しました (${history.past.length - 1} 手残り)`);
+  };
+  const redo = () => {
+    if (history.future.length === 0) { showToast('やり直す履歴がありません'); return; }
+    const next = history.future[0];
+    setHistory(h => ({
+      past: [...h.past, formations].slice(-HISTORY_LIMIT),
+      future: h.future.slice(1),
+    }));
+    setFormations(next);
+    showToast(`↷ やり直しました (${history.future.length - 1} 手残り)`);
+  };
+  // キーボード: Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y = redo
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') { e.preventDefault(); redo(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [history, formations]);
+
   const updateSel = (patch) => {
     setFormations(fs => fs.map((f,i) => i===selIdx ? {...f, ...patch} : f));
   };
   const moveFormation = (i, dir) => {
     const to = i + dir;
     if (to < 0 || to >= formations.length) return;
+    pushHistory();
     setFormations(fs => {
       const arr = [...fs];
       [arr[i], arr[to]] = [arr[to], arr[i]];
@@ -261,6 +306,7 @@ function Choreo() {
   const addFormation = (baseId) => {
     const template = FORMATIONS.find(f => f.id === baseId);
     if (!template) return;
+    pushHistory();
     const newStart = starts[selIdx] + formations[selIdx].dur;
     const newF = {
       ...template, typeId: template.id, _uid: makeUid('new'),
@@ -279,6 +325,7 @@ function Choreo() {
   const duplicateFormation = () => {
     const cur = formations[selIdx];
     if (!cur) return;
+    pushHistory();
     const newStart = starts[selIdx] + cur.dur;
     const dup = { ...cur, _uid: makeUid('dup') };
     setFormations(fs => {
@@ -295,6 +342,7 @@ function Choreo() {
       showToast('最低 1 演目は必要です');
       return;
     }
+    pushHistory();
     const removed = formations[selIdx];
     setFormations(fs => fs.filter((_, i) => i !== selIdx));
     const newIdx = Math.max(0, Math.min(selIdx, formations.length - 2));
@@ -392,6 +440,7 @@ function Choreo() {
         const knownIds = window.AstraFlock?.FORMATIONS?.map(f => f.id) || [];
         const res = window.AstraFlockSchema.normalizeShow(data, knownIds);
         if (!res.ok) { showToast('不正なファイル: ' + res.error); return; }
+        pushHistory();
         // React key 用 _uid はここで付与 (schema は純粋関数のため _uid は含めない)
         const stamp = Date.now();
         const normalized = res.formations.map((f, i) => ({ ...f, _uid: `imported-${stamp}-${i}` }));
@@ -450,6 +499,7 @@ function Choreo() {
   const loadPreset = (name) => {
     const p = presets[name];
     if (!p || !Array.isArray(p.formations)) return;
+    pushHistory();
     const restored = p.formations.map((f, i) => ({
       ...f,
       typeId: f.typeId || f.id,
@@ -607,6 +657,12 @@ function Choreo() {
           <div><div className="k">Duration</div><div className="v">{fmt(totalDur)}</div></div>
           <div><div className="k">Drones</div><div className="v">660</div></div>
           <div className="ch-actions">
+            <button className="ch-btn ghost ch-icon" onClick={undo} disabled={history.past.length === 0}
+                    title={`元に戻す (${navigator.platform.match(/Mac/i) ? '⌘' : 'Ctrl+'}Z) ・ ${history.past.length} 手`}
+                    aria-label="元に戻す">↶</button>
+            <button className="ch-btn ghost ch-icon" onClick={redo} disabled={history.future.length === 0}
+                    title={`やり直す (${navigator.platform.match(/Mac/i) ? '⌘⇧' : 'Ctrl+Shift+'}Z) ・ ${history.future.length} 手`}
+                    aria-label="やり直す">↷</button>
             <button className="ch-btn ghost" onClick={()=>setPresetPanelOpen(true)}>プリセット</button>
             <button className="ch-btn ghost" onClick={onImportClick}>読込 .json</button>
             <button className="ch-btn ghost" onClick={onExport} title="演目 + BPM + 音源 meta">書出 .json</button>
