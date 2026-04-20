@@ -147,25 +147,25 @@
     // - Inside muzzle: nose (3 dots triangle) + mouth (4 dots curve) as positive drones
     // - Ears: 2 rounded discs, bigger + wider-positioned
     const out = new Float32Array(n * 3);
-    const head = { cx: 0, cy: 0, rx: 50, ry: 42 };
+    const head = { cx: 0, cy: 0, rx: 52, ry: 42 };
     const voids = [
-      { cx: -20, cy: -5, r: 6 }, // left eye — wider + lower
-      { cx:  20, cy: -5, r: 6 }, // right eye
+      { cx: -22, cy: -4, r: 6.5 }, // left eye — wider + bigger + slight below center
+      { cx:  22, cy: -4, r: 6.5 }, // right eye
     ];
-    // Muzzle = elliptical void, the signature "light muzzle patch"
-    const muzzle = { cx: 0, cy: -19, rx: 14, ry: 11 };
+    // Muzzle: wide flat horizontal oval (the signature light muzzle patch)
+    const muzzle = { cx: 0, cy: -22, rx: 18, ry: 9 };
     const ears = [
-      { cx: -36, cy: 32, r: 16 },
-      { cx:  36, cy: 32, r: 16 },
+      { cx: -36, cy: 30, r: 17 }, // attached/slightly-overlapping head top
+      { cx:  36, cy: 30, r: 17 },
     ];
-    // Nose: 3-point inverted triangle at top of muzzle
+    // Nose: 3-point inverted triangle at top of muzzle (around y=-16)
     const nose = [
-      { x: -2.5, y: -13 }, { x:  2.5, y: -13 }, { x: 0, y: -17 },
+      { x: -3, y: -16 }, { x:  3, y: -16 }, { x: 0, y: -19 },
     ];
-    // Mouth: gentle U-curve below nose
+    // Mouth: U-curve at bottom of muzzle (around y=-25..-27)
     const mouth = [
-      { x: -4, y: -23 }, { x: -1.5, y: -25 },
-      { x:  1.5, y: -25 }, { x:  4, y: -23 },
+      { x: -4, y: -25 }, { x: -1.5, y: -27 },
+      { x:  1.5, y: -27 }, { x:  4, y: -25 },
     ];
     const features = [...nose, ...mouth]; // 7 drones
 
