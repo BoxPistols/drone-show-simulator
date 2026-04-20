@@ -555,6 +555,20 @@
   const fsBtn = $('btn-fullscreen');
   if (fsBtn) fsBtn.addEventListener('click', toggleFullscreen);
 
+  // ---------- Screenshot ----------
+  function downloadScreenshot() {
+    // force a fresh render (preserveDrawingBuffer=true in renderer setup)
+    renderer.render(scene, camera);
+    const url = renderer.domElement.toDataURL('image/png');
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `astra-flock-${stamp}.png`;
+    a.click();
+  }
+  const ssBtn = $('btn-screenshot');
+  if (ssBtn) ssBtn.addEventListener('click', downloadScreenshot);
+
   // ---------- Keyboard shortcuts ----------
   // Space: 再生/停止, ←/→: 前/次, F: 全画面, T: tweaks パネル,
   // +/-: 速度, 1-9: 演目ジャンプ
@@ -576,6 +590,9 @@
         break;
       case 'f': case 'F':
         toggleFullscreen();
+        break;
+      case 's': case 'S':
+        downloadScreenshot();
         break;
       case 't': case 'T':
         $('tweaks-panel').classList.toggle('open');
