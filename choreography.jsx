@@ -5,11 +5,11 @@ const FORMATIONS = [
   { id:'helix',   jp:'単螺旋',    en:'Ascending Helix',      dur:38, color:'#d429e0', drones:660, desc:'螺旋状に昇り、観客の視線を天へ。' },
   { id:'torus',   jp:'円環',      en:'Torus Ring',           dur:36, color:'#ffb347', drones:660, desc:'ドーナツ状のトーラス面上。' },
   { id:'wave',    jp:'波紋',      en:'Ripple Grid',          dur:44, color:'#31a9c7', drones:660, desc:'格子上をサイン波が伝播。' },
+  { id:'bear',    jp:'熊',        en:'Bear Silhouette',      dur:54, color:'#d4915c', drones:660, desc:'中盤のひと息。クマの顔アップ。観客との視線交換。' },
   { id:'dna',     jp:'二重螺旋',  en:'Double Helix',         dur:40, color:'#98ff9e', drones:660, desc:'二本の螺旋が絡み合う。' },
   { id:'cube',    jp:'立方体',    en:'Wireframe Cube',       dur:34, color:'#ff69b4', drones:660, desc:'12本のエッジ上に配置。' },
-  { id:'galaxy',  jp:'銀河',      en:'Spiral Galaxy',        dur:48, color:'#c5b3ff', drones:660, desc:'四本腕の渦巻銀河。' },
   { id:'heart',   jp:'心臓',      en:'Pulse of Love',        dur:32, color:'#ff6b7a', drones:660, desc:'パラメトリック心臓形。' },
-  { id:'bear',    jp:'熊',        en:'Bear Silhouette',      dur:54, color:'#d4915c', drones:660, desc:'クマの顔アップ。頭 + 耳 + 離れた目 + マズル (鼻と口)。フィナーレ。' },
+  { id:'galaxy',  jp:'銀河',      en:'Spiral Galaxy',        dur:48, color:'#c5b3ff', drones:660, desc:'最終演目。四本腕の渦巻銀河が閉幕を飾る。' },
 ];
 const EASING = ['Linear','Ease-in','Ease-out','Ease-both','Elastic'];
 const PALETTES = [

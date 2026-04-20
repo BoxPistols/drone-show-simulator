@@ -241,11 +241,11 @@
     { id:'helix',   jp:'単螺旋',    en:'Ascending Helix',    desc:'螺旋状に昇り、観客の視線を天へ導く。東京湾の夜空に立ち上がる一本の光の柱。',               dur:38, fn:fHelix,       color:'#d429e0' },
     { id:'torus',   jp:'円環',     en:'Torus Ring',         desc:'ドーナツ状のトーラス面上に配置。観客が真下から見上げると環が空を縁取る。',                 dur:36, fn:fTorus,       color:'#ffb347' },
     { id:'wave',    jp:'波紋',     en:'Ripple Grid',        desc:'均等な格子の上を、サインとコサインで定義された波がゆるやかに伝播する。',                 dur:44, fn:fWave,        color:'#31a9c7' },
+    { id:'bear',    jp:'熊',       en:'Bear Silhouette',    desc:'中盤のひと息。クマの顔のクローズアップ。頭 + 丸い耳 + 離れた目 + マズル。観客との視線交換。',  dur:54, fn:fBear,        color:'#d4915c' },
     { id:'dna',     jp:'二重螺旋',  en:'Double Helix',       desc:'二本の螺旋が絡み合う、生命の構造。22機ごとに配されたラングが結合を表現する。',             dur:40, fn:fDoubleHelix, color:'#98ff9e' },
     { id:'cube',    jp:'立方体',    en:'Wireframe Cube',     desc:'12本のエッジ上に55機ずつ配置。辺と頂点だけで、立方体の輪郭を空中に描く。',               dur:34, fn:fCube,        color:'#ff69b4' },
-    { id:'galaxy',  jp:'銀河',     en:'Spiral Galaxy',      desc:'四本腕の渦巻銀河。中心から外縁へ、660個の恒星がゆるやかに渦を巻く。',                    dur:48, fn:fGalaxy,      color:'#c5b3ff' },
-    { id:'heart',   jp:'心臓',     en:'Pulse of Love',      desc:'パラメトリック方程式による心臓形。フィナーレに向けた、観客への静かな挨拶。',               dur:32, fn:fHeart,       color:'#ff6b7a' },
-    { id:'bear',    jp:'熊',       en:'Bear Silhouette',    desc:'最終演目。クマの顔のクローズアップ。大きな頭 + 丸い耳 + 離れた目 + マズル (鼻と口) を備えた幼い表情。',   dur:54, fn:fBear,        color:'#d4915c' },
+    { id:'heart',   jp:'心臓',     en:'Pulse of Love',      desc:'パラメトリック方程式による心臓形。フィナーレ前の、観客への静かな挨拶。',                   dur:32, fn:fHeart,       color:'#ff6b7a' },
+    { id:'galaxy',  jp:'銀河',     en:'Spiral Galaxy',      desc:'最終演目。四本腕の渦巻銀河。660 個の恒星が夜空いっぱいに旋回し、閉幕を飾る。',             dur:48, fn:fGalaxy,      color:'#c5b3ff' },
   ];
 
   FORMATIONS.forEach(f => { f.targets = f.fn(DRONE_COUNT); });
