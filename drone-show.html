@@ -535,6 +535,76 @@
     display: none;
   }
   #tweaks-panel.open { display: block; }
+
+  /* Keyboard hints overlay */
+  .kbd-hints {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--ink-strong);
+    border: 1px solid var(--hair);
+    border-radius: 14px;
+    padding: 26px 32px 22px;
+    z-index: 30;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: none;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    min-width: 320px;
+  }
+  .kbd-hints.open { display: block; }
+  .kbd-hints .kh-title {
+    font-family: "Shippori Mincho", serif;
+    font-size: 16px;
+    color: #fff;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--hair);
+    letter-spacing: 0.12em;
+  }
+  .kbd-hints .kh-title .en {
+    font-family: var(--font-design);
+    font-size: 9px;
+    color: var(--color-hotpink);
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    margin-left: 8px;
+  }
+  .kbd-hints dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px 22px;
+    align-items: center;
+  }
+  .kbd-hints dt {
+    font-family: var(--font-mono);
+    background: rgba(255,255,255,0.08);
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--color-moonstone);
+    text-align: center;
+    white-space: nowrap;
+  }
+  .kbd-hints dd {
+    margin: 0;
+    font-family: "Shippori Mincho", serif;
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 0.04em;
+  }
+  .kbd-hints .kh-close {
+    font-family: var(--font-design);
+    font-size: 9px;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    margin-top: 16px;
+    text-align: center;
+    padding-top: 10px;
+    border-top: 1px solid var(--hair);
+  }
   .tw-header {
     display: flex;
     justify-content: space-between;
@@ -944,6 +1014,22 @@
 </div>
 
 <div class="frame-count" id="fc">FRAME 025548 ・ 60 FPS ・ REC</div>
+
+<!-- Keyboard shortcuts overlay (toggle with ?) -->
+<div class="kbd-hints" id="kbd-hints" role="dialog" aria-label="キーボードショートカット">
+  <div class="kh-title">キー操作<span class="en">Keyboard Shortcuts</span></div>
+  <dl>
+    <dt>Space</dt><dd>再生 / 一時停止</dd>
+    <dt>← / →</dt><dd>前 / 次の演目</dd>
+    <dt>1 〜 9</dt><dd>演目へ直接ジャンプ</dd>
+    <dt>+ / −</dt><dd>再生速度を変更</dd>
+    <dt>F</dt><dd>全画面表示</dd>
+    <dt>T</dt><dd>設定パネル表示切替</dd>
+    <dt>S</dt><dd>スクリーンショット</dd>
+    <dt>? / Esc</dt><dd>このヘルプを開閉</dd>
+  </dl>
+  <div class="kh-close">? または Esc で閉じる</div>
+</div>
 
 <script>
   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{

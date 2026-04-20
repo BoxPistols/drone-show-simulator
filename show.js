@@ -170,17 +170,25 @@
   }
 
   // ---------- Controls ----------
+  // URL query params: ?f=<0..8> で初期演目、?speed=<n> で初期速度
+  const urlP = new URLSearchParams(window.location.search);
+  const fParam = parseInt(urlP.get('f'), 10);
+  const sParam = parseFloat(urlP.get('speed'));
+  const initFormation = (Number.isInteger(fParam) && fParam >= 0 && fParam < FORMATIONS.length)
+    ? fParam : window.__TWEAKS.formationIndex;
+  const initSpeed = (!isNaN(sParam) && sParam > 0) ? sParam : window.__TWEAKS.speed;
+
   let state = {
-    formationIndex: window.__TWEAKS.formationIndex,
+    formationIndex: initFormation,
     palette: window.__TWEAKS.palette,
     sky: window.__TWEAKS.sky,
     trails: window.__TWEAKS.trails,
     rotate: window.__TWEAKS.rotate,
     glow: window.__TWEAKS.glow,
     droneSize: window.__TWEAKS.droneSize,
-    speed: window.__TWEAKS.speed,
+    speed: initSpeed,
     playing: true,
-    showTime: FORMATIONS[window.__TWEAKS.formationIndex] ? FORMATIONS[window.__TWEAKS.formationIndex].start + 0.01 : 0,
+    showTime: FORMATIONS[initFormation] ? FORMATIONS[initFormation].start + 0.01 : 0,
   };
 
   applyPalette(state.palette);
@@ -593,6 +601,15 @@
         break;
       case 's': case 'S':
         downloadScreenshot();
+        break;
+      case '?': case '/':
+        $('kbd-hints')?.classList.toggle('open');
+        break;
+      case 'Escape':
+        $('kbd-hints')?.classList.remove('open');
+        $('tweaks-panel')?.classList.remove('open');
+        document.body.classList.remove('tweaks-open');
+        if (document.fullscreenElement) document.exitFullscreen?.();
         break;
       case 't': case 'T':
         $('tweaks-panel').classList.toggle('open');
