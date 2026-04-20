@@ -268,5 +268,19 @@
     dawn:     { name:'Dawn',    jp:'夜明', bg:['#1a1228','#3d2650','#4f3250'] },
   };
 
-  window.AstraFlock = { DRONE_COUNT, FORMATIONS, PALETTES, SKIES, TOTAL_TIME };
+  // Fleet snapshot — deterministic distribution mirroring fleet.jsx generateFleet()
+  // (seed 42, 600 active / 32 charging / 18 standby / 10 maint = 660 total)
+  // Both choreography.jsx and fleet.jsx should read from here instead of local consts.
+  const FLEET = Object.freeze({
+    total: 660,
+    active: 600,
+    charging: 32,
+    standby: 18,
+    maint: 10,
+    available: 600,              // = active
+    nonFlyable: 10,              // = maint
+    reservable: 32 + 18,         // charging + standby (招集可能プール)
+  });
+
+  window.AstraFlock = { DRONE_COUNT, FORMATIONS, PALETTES, SKIES, TOTAL_TIME, FLEET };
 })();

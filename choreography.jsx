@@ -11,13 +11,15 @@ const FORMATIONS = [
   { id:'heart',   jp:'心臓',      en:'Pulse of Love',        dur:32, color:'#ff6b7a', drones:660, desc:'パラメトリック心臓形。' },
   { id:'galaxy',  jp:'銀河',      en:'Spiral Galaxy',        dur:48, color:'#c5b3ff', drones:660, desc:'最終演目。四本腕の渦巻銀河が閉幕を飾る。' },
 ];
-// Fleet availability snapshot (generateFleet() in fleet.jsx, deterministic seed 42)
-// 600 active / 32 charging / 18 standby / 10 maint = 660 total
-// 即時飛行可能 = active のみ。standby は招集可だが通常運用外とみなす。
-const FLEET_TOTAL = 660;
-const FLEET_AVAILABLE = 600;
-const FLEET_MAINT = 10;
-const FLEET_OTHER = FLEET_TOTAL - FLEET_AVAILABLE - FLEET_MAINT; // charging+standby=50
+// Fleet availability snapshot — window.AstraFlock.FLEET から参照。
+// ハードコード fallback は formations.js がまだ読み込まれていない想定外ケース用。
+const _FLEET = (typeof window !== 'undefined' && window.AstraFlock?.FLEET) || {
+  total: 660, available: 600, maint: 10, reservable: 50,
+};
+const FLEET_TOTAL = _FLEET.total;
+const FLEET_AVAILABLE = _FLEET.available;
+const FLEET_MAINT = _FLEET.maint;
+const FLEET_OTHER = _FLEET.reservable;
 
 const EASING = ['Linear','Ease-in','Ease-out','Ease-both','Elastic'];
 const PALETTES = [

@@ -11,13 +11,18 @@ function prng(seed) {
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0xffffffff; };
 }
 
+// Fleet 分布は window.AstraFlock.FLEET と同一の値を使う (共通 source of truth)
+const FLEET_CFG = (typeof window !== 'undefined' && window.AstraFlock?.FLEET) || {
+  total: 660, active: 600, charging: 32, standby: 18, maint: 10,
+};
+
 function generateFleet() {
   const out = [];
   const statusDist = [
-    ...Array(600).fill('active'),
-    ...Array(32).fill('charging'),
-    ...Array(18).fill('standby'),
-    ...Array(10).fill('maint'),
+    ...Array(FLEET_CFG.active).fill('active'),
+    ...Array(FLEET_CFG.charging).fill('charging'),
+    ...Array(FLEET_CFG.standby).fill('standby'),
+    ...Array(FLEET_CFG.maint).fill('maint'),
   ];
   // shuffle deterministically
   const r = prng(42);
@@ -25,7 +30,7 @@ function generateFleet() {
     const j = Math.floor(r() * (i + 1));
     [statusDist[i], statusDist[j]] = [statusDist[j], statusDist[i]];
   }
-  for (let i = 0; i < 660; i++) {
+  for (let i = 0; i < FLEET_CFG.total; i++) {
     const rr = prng(i * 7 + 1);
     const id = 'AS-' + String(i + 1).padStart(3, '0');
     const status = statusDist[i];
