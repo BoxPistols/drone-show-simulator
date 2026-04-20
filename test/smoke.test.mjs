@@ -96,6 +96,11 @@ test('vercel.json has rewrite / CSP headers + outputDirectory', () => {
   const flat = JSON.stringify(vc.headers);
   assert.match(flat, /Content-Security-Policy/);
   assert.match(flat, /X-Content-Type-Options/);
+  assert.match(flat, /Strict-Transport-Security/, 'HSTS required');
+  assert.match(flat, /X-Frame-Options/, 'X-Frame-Options required (legacy support)');
+  assert.match(flat, /Cross-Origin-Opener-Policy/, 'COOP required');
+  assert.match(flat, /base-uri/, 'CSP base-uri required');
+  assert.match(flat, /form-action/, 'CSP form-action required');
 });
 
 // --- Package scripts ---
