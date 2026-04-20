@@ -241,11 +241,18 @@ function Choreo() {
           return;
         }
         // 旧形式 (typeId/_uid なし) と新形式どちらも受けられるよう正規化
+        // 未知の typeId は window.AstraFlock.FORMATIONS に shape 関数がないため
+        // Preview で空点群になる → sphere にフォールバック
+        const knownIds = new Set(window.AstraFlock?.FORMATIONS?.map(f => f.id) || []);
+        let fallbackCount = 0;
         const normalized = data.map((f, i) => {
           if (!f || !f.id) throw new Error(`演目 #${i+1} に id がありません`);
+          const rawType = f.typeId || f.id;
+          const typeId = knownIds.has(rawType) ? rawType : 'sphere';
+          if (typeId !== rawType) fallbackCount++;
           return {
             ...f,
-            typeId: f.typeId || f.id,
+            typeId,
             _uid: `imported-${Date.now()}-${i}`,
             easing: f.easing || 'Ease-both',
             paletteOverride: f.paletteOverride ?? null,
@@ -264,7 +271,8 @@ function Choreo() {
         setSelIdx(0);
         setTime(0);
         setAddPickerOpen(false);
-        showToast(`読込完了: ${normalized.length} 演目`);
+        const warning = fallbackCount > 0 ? ` ・${fallbackCount} 件は未知形状を sphere にフォールバック` : '';
+        showToast(`読込完了: ${normalized.length} 演目${warning}`);
       } catch (err) {
         showToast('読込エラー: ' + err.message);
       } finally {
