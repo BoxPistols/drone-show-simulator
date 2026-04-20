@@ -170,6 +170,44 @@ function Choreo() {
     else if (selIdx === to) setSelIdx(i);
   };
 
+  // --- Phase 2-F: drag block handle to snap start-time to music ---
+  // 演目 block の左端ハンドルを左右にドラッグすると、直前演目の dur を伸縮して
+  // この block の開始位置を調整する。総時間は変化する (音源に合わせて柔軟に)。
+  const dragRef = useRef(null);
+  const MIN_DUR = 5;
+  const onHandlePointerDown = (i, e) => {
+    if (i === 0) return; // 先頭は開始位置 0 固定
+    e.stopPropagation();
+    e.preventDefault();
+    const track = e.currentTarget.closest('.tl-row') || e.currentTarget.parentElement;
+    dragRef.current = {
+      idx: i,
+      startX: e.clientX,
+      trackWidth: track.getBoundingClientRect().width,
+      origPrevDur: formations[i - 1].dur,
+      totalDurAtStart: formations.reduce((s, f) => s + f.dur, 0),
+    };
+  };
+  useEffect(() => {
+    const onMove = (e) => {
+      const d = dragRef.current;
+      if (!d) return;
+      const dx = e.clientX - d.startX;
+      const dtSec = (dx / d.trackWidth) * d.totalDurAtStart;
+      const newPrevDur = Math.max(MIN_DUR, d.origPrevDur + dtSec);
+      setFormations(fs => fs.map((f, idx) =>
+        idx === d.idx - 1 ? { ...f, dur: newPrevDur } : f
+      ));
+    };
+    const onUp = () => { dragRef.current = null; };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, []);
+
   // --- CRUD: formation add / duplicate / delete ---
   const [addPickerOpen, setAddPickerOpen] = useState(false);
   const addFormation = (baseId) => {
@@ -518,6 +556,12 @@ function Choreo() {
                     <div key={f._uid || f.id} className={'tl-block'+(i===selIdx?' active':'')}
                       style={{ left: left+'%', width: width+'%', background: f.color }}
                       onClick={() => { setSelIdx(i); seekTo(starts[i]+0.01); }}>
+                      {i > 0 && (
+                        <div className="tl-block-handle"
+                             onPointerDown={(e) => onHandlePointerDown(i, e)}
+                             title={`${f.jp} の開始位置をドラッグで調整`}
+                             aria-label={`${f.jp} の開始位置`} />
+                      )}
                       {String(i+1).padStart(2,'0')} {f.jp}
                     </div>
                   );

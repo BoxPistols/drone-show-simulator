@@ -356,6 +356,24 @@
 }
 .tl-block:hover { filter: brightness(1.15); }
 .tl-block.active { box-shadow: 0 0 0 2px #fff, 0 4px 16px rgba(49,169,199,0.5); z-index: 2; }
+.tl-block-handle {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  background: linear-gradient(90deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.08) 100%);
+  border-radius: 5px 0 0 5px;
+  transition: background 0.12s, width 0.12s;
+  z-index: 3;
+}
+.tl-block-handle:hover {
+  width: 8px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.2) 100%);
+}
+.tl-block-handle:active {
+  background: linear-gradient(90deg, var(--moon) 0%, rgba(49,169,199,0.3) 100%);
+  width: 8px;
+}
 .tl-playhead {
   position: absolute; top: 0; bottom: 0;
   width: 2px; background: var(--pink);
