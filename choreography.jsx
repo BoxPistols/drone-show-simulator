@@ -32,6 +32,16 @@ const PALETTES = [
 
 function fmt(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 
+// Live eased value readout ("t=0.42 → 0.61") for the current easing + progress.
+// EASING_FN は下で宣言されるが、この関数は render 中にのみ呼ばれるため OK。
+function fmtEaseLive(time, total, easingName) {
+  if (!total) return '';
+  const t = (time % total) / total;
+  const fn = EASING_FN[easingName] || (x => x);
+  const v = fn(t);
+  return `t=${t.toFixed(2)} → ${v.toFixed(2)}`;
+}
+
 // Easing curves — same set as the EASING selector
 const EASING_FN = {
   'Linear':   t => t,
@@ -77,7 +87,10 @@ function Preview({ formation, time, total }) {
     // Easing pulse on point size
     const progress = total > 0 ? (time % total) / total : 0;
     const easeFn = EASING_FN[formation.easing] || EASING_FN['Ease-both'];
-    const pulseSz = 0.82 + easeFn(progress) * 0.34;
+    // easing カーブを点サイズ+全体不透明度に反映。range 0.55..1.45 で差異を知覚しやすく
+    const easedV = easeFn(progress);
+    const pulseSz = 0.55 + easedV * 0.9;
+    const pulseAlpha = 0.55 + easedV * 0.4; // 0.55..0.95
 
     // Camera + projection — rotate around world Y
     const cx = W/2, cy = H/2 + 12;
@@ -112,7 +125,7 @@ function Preview({ formation, time, total }) {
       ctx.fillStyle = (ov && p.i % 4 === 0) ? accentColor : baseColor;
       const twinkle = 0.7 + Math.sin(p.i * 0.3 + rotY * 2) * 0.3;
       const sz = 1.9 * pulseSz * twinkle * Math.max(0.55, p.persp);
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = pulseAlpha;
       ctx.beginPath();
       ctx.arc(p.sx, p.sy, sz, 0, Math.PI*2);
       ctx.fill();
@@ -762,11 +775,31 @@ function Choreo() {
           </div>
 
           <div className="cr-section">
-            <div className="cr-sec-head"><span>Easing</span><span className="jp">補間曲線</span></div>
-            <div className="cr-seg">
-              {EASING.map(e => (
-                <button key={e} className={sel.easing===e?'on':''} onClick={()=>updateSel({easing:e})}>{e}</button>
-              ))}
+            <div className="cr-sec-head">
+              <span>Easing</span>
+              <span className="jp">補間曲線 ・ <b style={{color:'var(--moon)'}}>{fmtEaseLive(time, totalDur, sel.easing)}</b></span>
+            </div>
+            <div className="cr-seg cr-seg-easing">
+              {EASING.map(e => {
+                const fn = EASING_FN[e] || (t => t);
+                // Build 24-pt path for the easing curve, SVG viewBox 0 0 40 22
+                const pts = [];
+                for (let i = 0; i <= 24; i++) {
+                  const t = i / 24;
+                  const v = Math.max(-0.3, Math.min(1.3, fn(t))); // clamp Elastic overshoot
+                  pts.push(`${i===0?'M':'L'}${(t*36+2).toFixed(1)},${(19 - v*16).toFixed(1)}`);
+                }
+                return (
+                  <button key={e} className={sel.easing===e?'on':''} onClick={()=>updateSel({easing:e})}>
+                    <div className="es-label">{e}</div>
+                    <svg className="es-curve" viewBox="0 0 40 22" preserveAspectRatio="none" aria-hidden="true">
+                      <line x1="2" y1="19" x2="38" y2="19" stroke="currentColor" strokeWidth="0.3" opacity="0.25"/>
+                      <line x1="2" y1="3" x2="38" y2="3" stroke="currentColor" strokeWidth="0.3" opacity="0.15"/>
+                      <path d={pts.join(' ')} fill="none" stroke="currentColor" strokeWidth="1.4" opacity="0.85" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

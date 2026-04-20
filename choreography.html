@@ -492,7 +492,15 @@
   font-size: 11px; cursor: pointer; font-family: var(--mincho); letter-spacing: 0.04em;
   transition: all 0.15s;
 }
+.cr-seg button:hover:not(.on) { background: rgba(255,255,255,0.04); color: var(--text-1); }
 .cr-seg button.on { background: var(--moon); color: #02030a; }
+
+/* Easing seg に曲線プレビュー SVG を縦並びで載せる */
+.cr-seg-easing button { padding: 5px 4px 3px; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.cr-seg-easing .es-label { font-size: 10px; line-height: 1.1; letter-spacing: 0.02em; text-align: center; }
+.cr-seg-easing .es-curve { width: 100%; height: 20px; opacity: 0.7; }
+.cr-seg-easing button.on .es-curve { opacity: 1; }
+.cr-seg-easing button:not(.on):hover .es-curve { opacity: 0.95; }
 .cr-swatches { display: flex; gap: 6px; }
 .cr-sw {
   width: 26px; height: 26px; border-radius: 6px;
