@@ -509,6 +509,39 @@
 .cr-dronecount .l { color: var(--text-2); }
 .cr-dronecount .v { font-family:"Poppins",sans-serif; color: #fff; font-weight:500; }
 
+/* Fleet availability panel (Phase 3-H) */
+.cr-fleet {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+}
+.cr-fleet-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
+.cr-fleet-row .l {
+  font-family: "Poppins", sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.cr-fleet-row .v { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; }
+.cr-fleet-row .v.ok { color: var(--ok); }
+.cr-fleet-row .v.err { color: var(--err); }
+.cr-fleet-row .v.muted { color: var(--text-2); }
+.cr-warning {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(251,191,36,0.08);
+  border: 1px solid rgba(251,191,36,0.3);
+  border-radius: 4px;
+  color: var(--warn);
+  font-size: 11px;
+  line-height: 1.5;
+  font-family: var(--mincho);
+  letter-spacing: 0.04em;
+}
+
 .music-track {
   height: 36px;
   background: linear-gradient(90deg, rgba(212,41,224,0.12), rgba(49,169,199,0.12));

@@ -11,6 +11,14 @@ const FORMATIONS = [
   { id:'heart',   jp:'心臓',      en:'Pulse of Love',        dur:32, color:'#ff6b7a', drones:660, desc:'パラメトリック心臓形。' },
   { id:'galaxy',  jp:'銀河',      en:'Spiral Galaxy',        dur:48, color:'#c5b3ff', drones:660, desc:'最終演目。四本腕の渦巻銀河が閉幕を飾る。' },
 ];
+// Fleet availability snapshot (generateFleet() in fleet.jsx, deterministic seed 42)
+// 600 active / 32 charging / 18 standby / 10 maint = 660 total
+// 即時飛行可能 = active のみ。standby は招集可だが通常運用外とみなす。
+const FLEET_TOTAL = 660;
+const FLEET_AVAILABLE = 600;
+const FLEET_MAINT = 10;
+const FLEET_OTHER = FLEET_TOTAL - FLEET_AVAILABLE - FLEET_MAINT; // charging+standby=50
+
 const EASING = ['Linear','Ease-in','Ease-out','Ease-both','Elastic'];
 const PALETTES = [
   { k:'aurora',  jp:'極光', colors:['#31a9c7','#d429e0','#98ff9e','#ffe58a'] },
@@ -736,12 +744,36 @@ function Choreo() {
             <div className="cr-sec-head"><span>Drone Allocation</span><span className="jp">機体配分</span></div>
             <div className="cr-dronecount">
               <span className="l">配置機数</span>
-              <span className="v">{sel.drones} / 660 機</span>
+              <span className="v" style={{color: sel.drones > FLEET_AVAILABLE ? 'var(--warn)' : 'var(--text-0)'}}>
+                {sel.drones} / {FLEET_TOTAL} 機
+              </span>
             </div>
-            <input type="range" className="cr-slider" min="60" max="660" step="10" value={sel.drones} onChange={e=>updateSel({drones:+e.target.value})} style={{marginTop:8}}/>
-            <div style={{fontFamily:'var(--mono)',fontSize:10, color:'var(--text-3)', marginTop:8, lineHeight:1.7, letterSpacing:'0.04em'}}>
-              AS-001 … AS-{String(sel.drones).padStart(3,'0')} ・ {sel.drones === 660 ? '全機割当' : `${sel.drones}機割当`}<br/>
-              予備機: AS-{String(sel.drones+1).padStart(3,'0')}以降 {660 - sel.drones}機
+            <input type="range" className="cr-slider" min="60" max={FLEET_TOTAL} step="10" value={sel.drones} onChange={e=>updateSel({drones:+e.target.value})} style={{marginTop:8}}/>
+
+            <div className="cr-fleet">
+              <div className="cr-fleet-row">
+                <span className="l">稼働可能 Active</span>
+                <span className="v ok">{FLEET_AVAILABLE}</span>
+              </div>
+              <div className="cr-fleet-row">
+                <span className="l">充電 / 待機</span>
+                <span className="v muted">{FLEET_OTHER}</span>
+              </div>
+              <div className="cr-fleet-row">
+                <span className="l">整備中 Maintenance</span>
+                <span className="v err">{FLEET_MAINT}</span>
+              </div>
+              {sel.drones > FLEET_AVAILABLE && (
+                <div className="cr-warning">
+                  ⚠ 配分 ({sel.drones}) が即時稼働可能数 ({FLEET_AVAILABLE}) を超過。
+                  {sel.drones - FLEET_AVAILABLE} 機は充電/待機から招集が必要。
+                </div>
+              )}
+            </div>
+
+            <div style={{fontFamily:'var(--mono)',fontSize:10, color:'var(--text-3)', marginTop:10, lineHeight:1.7, letterSpacing:'0.04em'}}>
+              AS-001 … AS-{String(sel.drones).padStart(3,'0')} ・ {sel.drones === FLEET_TOTAL ? '全機割当' : `${sel.drones}機割当`}<br/>
+              予備機: AS-{String(sel.drones+1).padStart(3,'0')}以降 {FLEET_TOTAL - sel.drones}機
             </div>
           </div>
         </div>
