@@ -477,12 +477,12 @@ function Choreo() {
                     ? <>音源 ・ {audio.name} <span style={{color:'var(--text-3)',fontSize:9,marginLeft:6,fontFamily:'var(--mono)'}}>{fmt(audio.duration)}</span></>
                     : <>音楽トラック ・ Music <span style={{color:'var(--text-3)',fontSize:9,marginLeft:6}}>(click でシーク)</span></>}
                 </div>
-                <div style={{display:'flex',gap:6}}>
-                  <button onClick={onAudioClick} style={{fontSize:9,padding:'3px 8px',background:'transparent',border:'1px solid var(--hair)',color:'var(--text-2)',borderRadius:4,cursor:'pointer',fontFamily:'"Poppins",sans-serif',letterSpacing:'0.14em',textTransform:'uppercase'}}>
+                <div className="music-btn-row">
+                  <button className="music-btn" onClick={onAudioClick}>
                     {audio ? '差替' : '+ 音源'}
                   </button>
                   {audio && (
-                    <button onClick={clearAudio} style={{fontSize:9,padding:'3px 8px',background:'transparent',border:'1px solid rgba(239,68,68,0.3)',color:'var(--err)',borderRadius:4,cursor:'pointer',fontFamily:'"Poppins",sans-serif',letterSpacing:'0.14em',textTransform:'uppercase'}}>解除</button>
+                    <button className="music-btn danger" onClick={clearAudio}>解除</button>
                   )}
                   <input type="file" accept="audio/*" ref={audioInputRef} onChange={onAudioChosen} style={{display:'none'}} aria-hidden="true"/>
                 </div>

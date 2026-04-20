@@ -208,6 +208,27 @@
 .pm-name { font-family: var(--mincho); font-size: 14px; color: var(--text-0); letter-spacing: 0.04em; }
 .pm-meta { font-family: "Poppins", sans-serif; font-size: 10px; color: var(--text-3); letter-spacing: 0.06em; margin-top: 3px; }
 .pm-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* Music track buttons (audio upload controls) */
+.music-btn-row { display: flex; gap: 6px; }
+.music-btn {
+  font-size: 9px;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid var(--hair);
+  color: var(--text-2);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: "Poppins", sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: all 0.12s;
+}
+.music-btn:hover { background: rgba(255,255,255,0.06); color: #fff; border-color: var(--hair-2); }
+.music-btn:focus-visible { outline: 2px solid var(--moon); outline-offset: 1px; }
+.music-btn.danger { border-color: rgba(239,68,68,0.3); color: var(--err); }
+.music-btn.danger:hover { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.5); color: var(--err); }
+
 .form-item {
   padding: 12px 14px 12px 20px;
   border-bottom: 1px solid rgba(255,255,255,0.04);
