@@ -151,6 +151,17 @@ function Choreo() {
   const updateSel = (patch) => {
     setFormations(fs => fs.map((f,i) => i===selIdx ? {...f, ...patch} : f));
   };
+  const moveFormation = (i, dir) => {
+    const to = i + dir;
+    if (to < 0 || to >= formations.length) return;
+    setFormations(fs => {
+      const arr = [...fs];
+      [arr[i], arr[to]] = [arr[to], arr[i]];
+      return arr;
+    });
+    if (selIdx === i) setSelIdx(to);
+    else if (selIdx === to) setSelIdx(i);
+  };
 
   // --- Mock interactions ---
   const [toast, setToast] = useState('');
@@ -211,6 +222,10 @@ function Choreo() {
                 <div className="fi-en">{f.en}</div>
               </div>
               <div className="fi-dur">{fmt(f.dur)}</div>
+              <div className="fi-move" onClick={e=>e.stopPropagation()}>
+                <button disabled={i===0} onClick={()=>moveFormation(i,-1)} aria-label={`${f.jp} を上へ`} title="上へ">↑</button>
+                <button disabled={i===formations.length-1} onClick={()=>moveFormation(i,+1)} aria-label={`${f.jp} を下へ`} title="下へ">↓</button>
+              </div>
             </div>
           ))}
         </div>
