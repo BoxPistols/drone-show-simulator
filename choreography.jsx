@@ -316,6 +316,55 @@ function Choreo() {
     const audioTag = audio ? ` + 音源 meta` : '';
     showToast(`書出完了: ${formations.length} 演目 + BPM${audioTag}`);
   };
+
+  // --- 機体別フライトパス export (実機連携用) ---
+  // 各 drone の keyframes 列 ({t, x, y, z}) を演目数分出力。補間は受け側で行う想定。
+  const onExportFlightPath = () => {
+    const af = window.AstraFlock;
+    if (!af) { showToast('formations.js が未ロード'); return; }
+    const drones = [];
+    for (let i = 0; i < af.DRONE_COUNT; i++) {
+      const keyframes = [];
+      let startT = 0;
+      for (let fIdx = 0; fIdx < formations.length; fIdx++) {
+        const f = formations[fIdx];
+        const shape = af.FORMATIONS.find(s => s.id === (f.typeId || f.id));
+        if (!shape || !shape.targets) continue;
+        keyframes.push({
+          t: +startT.toFixed(2),
+          x: +shape.targets[i*3].toFixed(2),
+          y: +shape.targets[i*3+1].toFixed(2),
+          z: +shape.targets[i*3+2].toFixed(2),
+          formation: f.typeId || f.id,
+        });
+        startT += f.dur;
+      }
+      drones.push({
+        id: `AS-${String(i+1).padStart(3,'0')}`,
+        idx: i,
+        assigned: i < (formations[0]?.drones || FLEET_TOTAL),
+        keyframes,
+      });
+    }
+    const payload = {
+      schema: 'astra-flock-flightpath/1',
+      exportedAt: new Date().toISOString(),
+      totalDuration: +formations.reduce((s,f) => s+f.dur, 0).toFixed(2),
+      bpm,
+      fleet: { total: FLEET_TOTAL, available: FLEET_AVAILABLE },
+      audio: audio ? { name: audio.name, duration: audio.duration } : null,
+      drones,
+    };
+    const blob = new Blob([JSON.stringify(payload)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    a.href = url; a.download = `astra-flock-flightpath-${stamp}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const sizeKB = Math.round(blob.size / 1024);
+    showToast(`機体書出完了: ${drones.length} 機 × ${formations.length} KF ≈ ${sizeKB}KB`);
+  };
   const fileInputRef = useRef();
   const onImportClick = () => fileInputRef.current?.click();
   const onFileChosen = (e) => {
@@ -561,7 +610,8 @@ function Choreo() {
           <div className="ch-actions">
             <button className="ch-btn ghost" onClick={()=>setPresetPanelOpen(true)}>プリセット</button>
             <button className="ch-btn ghost" onClick={onImportClick}>読込 .json</button>
-            <button className="ch-btn ghost" onClick={onExport}>書出 .json</button>
+            <button className="ch-btn ghost" onClick={onExport} title="演目 + BPM + 音源 meta">書出 .json</button>
+            <button className="ch-btn ghost" onClick={onExportFlightPath} title="機体別フライトパス (実機連携用)">機体書出</button>
             <button className="ch-btn" onClick={onSimulate}>シミュ実行</button>
             <button className="ch-btn primary" onClick={onSave}>保存</button>
             <input type="file" accept="application/json,.json" ref={fileInputRef} onChange={onFileChosen} style={{display:'none'}} aria-hidden="true"/>
