@@ -172,12 +172,22 @@ function Choreo() {
 
   // --- CRUD: formation add / duplicate / delete ---
   const [addPickerOpen, setAddPickerOpen] = useState(false);
+  // 新規 formation 生成用の _uid ファクトリ (crypto.randomUUID が使えるなら使う)
+  const makeUid = (prefix) => {
+    const rand = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+    return `${prefix}-${rand}`;
+  };
+  // 挿入後に time を新 formation の開始位置にシークして、
+  // playing=true の場合に auto-follow で selIdx が即リセットされるのを防ぐ
   const addFormation = (baseId) => {
     const template = FORMATIONS.find(f => f.id === baseId);
     if (!template) return;
+    const newStart = starts[selIdx] + formations[selIdx].dur;
     const newF = {
-      ...template, typeId: template.id, _uid: `new-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
-      easing:'Ease-both', paletteOverride:null, altitude:60, spread:55, speed:1.0, drones:660,
+      ...template, typeId: template.id, _uid: makeUid('new'),
+      easing:'Ease-both', paletteOverride:null, altitude:60, spread:55, speed:1.0,
     };
     setFormations(fs => {
       const arr = [...fs];
@@ -185,19 +195,22 @@ function Choreo() {
       return arr;
     });
     setSelIdx(selIdx + 1);
+    setTime(newStart + 0.01);
     setAddPickerOpen(false);
     showToast(`${template.jp} を追加しました`);
   };
   const duplicateFormation = () => {
     const cur = formations[selIdx];
     if (!cur) return;
-    const dup = { ...cur, _uid: `dup-${Date.now()}-${Math.random().toString(36).slice(2,6)}` };
+    const newStart = starts[selIdx] + cur.dur;
+    const dup = { ...cur, _uid: makeUid('dup') };
     setFormations(fs => {
       const arr = [...fs];
       arr.splice(selIdx + 1, 0, dup);
       return arr;
     });
     setSelIdx(selIdx + 1);
+    setTime(newStart + 0.01);
     showToast(`${cur.jp} を複製しました`);
   };
   const deleteFormation = () => {
@@ -271,7 +284,7 @@ function Choreo() {
             </div>
           </div>
           {addPickerOpen && (
-            <div className="ch-add-picker" role="menu">
+            <div className="ch-add-picker">
               <div className="cap-label">形状を選んで追加</div>
               {FORMATIONS.map(f => (
                 <button key={f.id} className="cap-item" onClick={()=>addFormation(f.id)} style={{borderLeft:`3px solid ${f.color}`}}>
