@@ -789,6 +789,57 @@
     pointer-events: none;
   }
   body.tweaks-open .frame-count { opacity: 0; }
+
+  /* ====== Responsive (mobile / tablet) ====== */
+  @media (max-width: 860px) {
+    .chrome-top { padding: 14px 16px; flex-wrap: wrap; gap: 10px; }
+    .brand-text .jp { font-size: 15px; }
+    .brand-text .en { font-size: 8px; letter-spacing: 0.18em; }
+    .brand-mark { width: 36px; height: 36px; }
+    .stat-cluster { display: none; }
+    .show-nav { padding: 4px; }
+    .sn-item { padding: 6px 10px; }
+    .sn-item .jp { font-size: 11px; }
+    .sn-item .en { font-size: 7px; }
+    .live-pill { padding: 6px 10px 6px 9px; font-size: 9px; }
+    .now-playing {
+      left: 16px; right: 16px; width: auto; top: 92px;
+      max-width: calc(100vw - 32px);
+    }
+    .np-number { font-size: 36px; }
+    .np-number .total { font-size: 14px; }
+    .np-title-jp { font-size: 26px; }
+    .np-title-en { font-size: 10px; margin-bottom: 10px; }
+    .np-desc { font-size: 11.5px; line-height: 1.55; }
+    .np-meta { font-size: 9px; gap: 12px; }
+    .location, .frame-count, .corner-tick { display: none; }
+    .programme { padding: 14px 14px 18px; }
+    .prog-header { margin-bottom: 10px; }
+    .prog-title { font-size: 11px; letter-spacing: 0.24em; }
+    .prog-title .en { display: none; }
+    .prog-track { height: 48px; }
+    .prog-rail { top: 12px; }
+    .chapter-meta { display: none; }
+    .chapter-dot { margin: 6px 0 0 0; }
+    .transport { bottom: 92px; padding: 5px; gap: 2px; }
+    .t-btn { width: 34px; height: 34px; }
+    .t-btn.play { width: 40px; height: 40px; }
+    .t-speed { font-size: 10px; padding: 0 10px; }
+    #tweaks-panel {
+      right: 8px; left: 8px; width: auto; top: auto; bottom: 160px;
+      transform: none; max-height: 50vh; overflow-y: auto;
+    }
+    .kbd-hints { min-width: 0; width: calc(100vw - 32px); padding: 20px 22px; }
+  }
+
+  @media (max-width: 520px) {
+    .brand-text .en { display: none; }
+    .show-nav .sn-item .jp { display: block; }
+    .show-nav .sn-item .en { display: none; }
+    .live-pill span:last-child { display: none; }
+    .live-pill { padding: 6px 8px; }
+    .np-desc { display: none; }
+  }
 </style>
 </head>
 <body>
