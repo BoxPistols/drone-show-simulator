@@ -51,7 +51,9 @@ function Preview({ formation, time, total }) {
     ctx.clearRect(0, 0, W, H);
 
     const af = window.AstraFlock;
-    const fdata = af && af.FORMATIONS.find(f => f.id === formation.id);
+    // 追加・複製された formation は typeId でベース shape を参照する (id は重複する)
+    const lookup = formation.typeId || formation.id;
+    const fdata = af && af.FORMATIONS.find(f => f.id === lookup);
     if (!fdata || !fdata.targets) return;
     const targets = fdata.targets;
     const N_total = af.DRONE_COUNT;
@@ -121,7 +123,12 @@ function Choreo() {
   const [selIdx, setSelIdx] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [time, setTime] = useState(0);
-  const [formations, setFormations] = useState(FORMATIONS.map(f => ({...f, easing:'Ease-both', paletteOverride:null, altitude:60, spread:55, speed:1.0})));
+  // typeId: window.AstraFlock.FORMATIONS で shape 関数を参照する用のベース id
+  // _uid:   React key 用のインスタンス識別子 (複製/追加後に id が重複しても衝突しない)
+  const [formations, setFormations] = useState(FORMATIONS.map((f, i) => ({
+    ...f, typeId: f.id, _uid: `init-${i}-${f.id}`,
+    easing:'Ease-both', paletteOverride:null, altitude:60, spread:55, speed:1.0
+  })));
   const totalDur = formations.reduce((s,f)=>s+f.dur,0);
   const starts = useMemo(() => { let t=0; return formations.map(f=>{const s=t; t+=f.dur; return s;}); },[formations]);
 
@@ -161,6 +168,61 @@ function Choreo() {
     });
     if (selIdx === i) setSelIdx(to);
     else if (selIdx === to) setSelIdx(i);
+  };
+
+  // --- CRUD: formation add / duplicate / delete ---
+  const [addPickerOpen, setAddPickerOpen] = useState(false);
+  // 新規 formation 生成用の _uid ファクトリ (crypto.randomUUID が使えるなら使う)
+  const makeUid = (prefix) => {
+    const rand = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+    return `${prefix}-${rand}`;
+  };
+  // 挿入後に time を新 formation の開始位置にシークして、
+  // playing=true の場合に auto-follow で selIdx が即リセットされるのを防ぐ
+  const addFormation = (baseId) => {
+    const template = FORMATIONS.find(f => f.id === baseId);
+    if (!template) return;
+    const newStart = starts[selIdx] + formations[selIdx].dur;
+    const newF = {
+      ...template, typeId: template.id, _uid: makeUid('new'),
+      easing:'Ease-both', paletteOverride:null, altitude:60, spread:55, speed:1.0,
+    };
+    setFormations(fs => {
+      const arr = [...fs];
+      arr.splice(selIdx + 1, 0, newF);
+      return arr;
+    });
+    setSelIdx(selIdx + 1);
+    setTime(newStart + 0.01);
+    setAddPickerOpen(false);
+    showToast(`${template.jp} を追加しました`);
+  };
+  const duplicateFormation = () => {
+    const cur = formations[selIdx];
+    if (!cur) return;
+    const newStart = starts[selIdx] + cur.dur;
+    const dup = { ...cur, _uid: makeUid('dup') };
+    setFormations(fs => {
+      const arr = [...fs];
+      arr.splice(selIdx + 1, 0, dup);
+      return arr;
+    });
+    setSelIdx(selIdx + 1);
+    setTime(newStart + 0.01);
+    showToast(`${cur.jp} を複製しました`);
+  };
+  const deleteFormation = () => {
+    if (formations.length <= 1) {
+      showToast('最低 1 演目は必要です');
+      return;
+    }
+    const removed = formations[selIdx];
+    setFormations(fs => fs.filter((_, i) => i !== selIdx));
+    const newIdx = Math.max(0, Math.min(selIdx, formations.length - 2));
+    setSelIdx(newIdx);
+    showToast(`${removed.jp} を削除しました`);
   };
 
   // --- Mock interactions ---
@@ -213,9 +275,27 @@ function Choreo() {
 
       <div className="ch-body">
         <div className="ch-left">
-          <div className="ch-list-head"><span>Programme</span><span className="jp">演目</span></div>
+          <div className="ch-list-head">
+            <span>Programme<span className="jp">演目</span></span>
+            <div className="ch-list-actions">
+              <button className="ch-icon-btn" onClick={duplicateFormation} title="選択中を複製" aria-label="複製">⎘</button>
+              <button className="ch-icon-btn danger" onClick={deleteFormation} disabled={formations.length <= 1} title="選択中を削除" aria-label="削除">✕</button>
+              <button className="ch-icon-btn primary" onClick={()=>setAddPickerOpen(v => !v)} title="演目を追加" aria-label="追加" aria-expanded={addPickerOpen}>+</button>
+            </div>
+          </div>
+          {addPickerOpen && (
+            <div className="ch-add-picker">
+              <div className="cap-label">形状を選んで追加</div>
+              {FORMATIONS.map(f => (
+                <button key={f.id} className="cap-item" onClick={()=>addFormation(f.id)} style={{borderLeft:`3px solid ${f.color}`}}>
+                  <span className="jp">{f.jp}</span>
+                  <span className="en">{f.en.split(' ')[0]}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {formations.map((f, i) => (
-            <div key={f.id} className={'form-item'+(i===selIdx?' active':'')} onClick={()=>{setSelIdx(i); setTime(starts[i]+0.01);}}>
+            <div key={f._uid || f.id} className={'form-item'+(i===selIdx?' active':'')} onClick={()=>{setSelIdx(i); setTime(starts[i]+0.01);}}>
               <div className="fi-num">{String(i+1).padStart(2,'0')}</div>
               <div>
                 <div className="fi-jp">{f.jp}</div>
@@ -260,7 +340,7 @@ function Choreo() {
                   const left = (starts[i]/totalDur)*100;
                   const width = (f.dur/totalDur)*100;
                   return (
-                    <div key={f.id} className={'tl-block'+(i===selIdx?' active':'')}
+                    <div key={f._uid || f.id} className={'tl-block'+(i===selIdx?' active':'')}
                       style={{ left: left+'%', width: width+'%', background: f.color }}
                       onClick={() => { setSelIdx(i); setTime(starts[i]+0.01); }}>
                       {String(i+1).padStart(2,'0')} {f.jp}
