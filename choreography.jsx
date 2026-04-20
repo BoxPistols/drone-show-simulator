@@ -240,6 +240,53 @@ function Choreo() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     showToast(`書出完了: ${formations.length} 演目 → astra-flock-programme.json`);
   };
+  const fileInputRef = useRef();
+  const onImportClick = () => fileInputRef.current?.click();
+  const onFileChosen = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!Array.isArray(data) || data.length === 0) {
+          showToast('不正なファイル: 配列が空か、配列でない');
+          return;
+        }
+        // 旧形式 (typeId/_uid なし) と新形式どちらも受けられるよう正規化
+        const normalized = data.map((f, i) => {
+          if (!f || !f.id) throw new Error(`演目 #${i+1} に id がありません`);
+          return {
+            ...f,
+            typeId: f.typeId || f.id,
+            _uid: `imported-${Date.now()}-${i}`,
+            easing: f.easing || 'Ease-both',
+            paletteOverride: f.paletteOverride ?? null,
+            altitude: typeof f.altitude === 'number' ? f.altitude : 60,
+            spread: typeof f.spread === 'number' ? f.spread : 55,
+            speed: typeof f.speed === 'number' ? f.speed : 1.0,
+            drones: typeof f.drones === 'number' ? f.drones : 660,
+            dur: typeof f.dur === 'number' ? f.dur : 30,
+            jp: f.jp || '新規',
+            en: f.en || 'New',
+            color: f.color || '#6ed3e6',
+            desc: f.desc || '',
+          };
+        });
+        setFormations(normalized);
+        setSelIdx(0);
+        setTime(0);
+        setAddPickerOpen(false);
+        showToast(`読込完了: ${normalized.length} 演目`);
+      } catch (err) {
+        showToast('読込エラー: ' + err.message);
+      } finally {
+        e.target.value = '';
+      }
+    };
+    reader.onerror = () => showToast('ファイル読込失敗');
+    reader.readAsText(file);
+  };
   const onSimulate = () => {
     setPlaying(true); setTime(0);
     showToast('シミュ実行: タイムラインを先頭から再生');
@@ -266,9 +313,11 @@ function Choreo() {
           <div><div className="k">Duration</div><div className="v">{fmt(totalDur)}</div></div>
           <div><div className="k">Drones</div><div className="v">660</div></div>
           <div className="ch-actions">
+            <button className="ch-btn ghost" onClick={onImportClick}>読込 .json</button>
             <button className="ch-btn ghost" onClick={onExport}>書出 .json</button>
             <button className="ch-btn" onClick={onSimulate}>シミュ実行</button>
             <button className="ch-btn primary" onClick={onSave}>保存</button>
+            <input type="file" accept="application/json,.json" ref={fileInputRef} onChange={onFileChosen} style={{display:'none'}} aria-hidden="true"/>
           </div>
         </div>
       </div>
