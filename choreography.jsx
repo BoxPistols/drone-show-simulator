@@ -262,7 +262,7 @@ function Choreo() {
         });
         setFormations(normalized);
         setSelIdx(0);
-        setTime(0);
+        seekTo(0);
         setAddPickerOpen(false);
         showToast(`読込完了: ${normalized.length} 演目`);
       } catch (err) {
@@ -275,7 +275,7 @@ function Choreo() {
     reader.readAsText(file);
   };
   const onSimulate = () => {
-    setPlaying(true); setTime(0);
+    setPlaying(true); seekTo(0);
     showToast('シミュ実行: タイムラインを先頭から再生');
   };
   const onSave = () => {
@@ -313,7 +313,7 @@ function Choreo() {
     }));
     setFormations(restored);
     setSelIdx(0);
-    setTime(0);
+    seekTo(0);
     setPresetPanelOpen(false);
     showToast(`読込: "${name}" (${restored.length} 演目)`);
   };
@@ -355,7 +355,7 @@ function Choreo() {
         }
         samples[i] = peak;
       }
-      setAudio({ name: file.name, duration: audioBuffer.duration, samples });
+      setAudio({ name: file.name, duration: audioBuffer.duration, samples, buffer: audioBuffer });
       showToast(`音源読込: ${file.name} (${Math.round(audioBuffer.duration)}s)`);
     } catch (err) {
       showToast('音源読込エラー: ' + err.message);
@@ -364,13 +364,63 @@ function Choreo() {
     }
   };
   const clearAudio = () => {
+    stopAudioSource();
     setAudio(null);
     showToast('音源を解除しました');
+  };
+
+  // --- Audio playback sync (Phase 2-E) ---
+  // state.playing と programme time の変化に音源再生を追従させる。
+  // 時間管理は既存の RAF tick がマスタ。音源は「頭出し起点 → 現在時刻から再生」。
+  const audioSourceRef = useRef(null);
+  const stopAudioSource = () => {
+    if (audioSourceRef.current) {
+      try { audioSourceRef.current.stop(); } catch (e) {}
+      try { audioSourceRef.current.disconnect(); } catch (e) {}
+      audioSourceRef.current = null;
+    }
+  };
+  const startAudioAt = (offset) => {
+    if (!audio?.buffer || !audioCtxRef.current) return;
+    stopAudioSource();
+    const ctx = audioCtxRef.current;
+    if (ctx.state === 'suspended') ctx.resume();
+    if (offset >= audio.buffer.duration) return; // 音源終了後は無音のまま
+    const source = ctx.createBufferSource();
+    source.buffer = audio.buffer;
+    source.connect(ctx.destination);
+    source.start(0, Math.max(0, offset));
+    audioSourceRef.current = source;
+  };
+
+  // playing / audio の変化で start/stop
+  useEffect(() => {
+    if (!audio) { stopAudioSource(); return; }
+    if (playing) startAudioAt(time);
+    else stopAudioSource();
+    return () => stopAudioSource();
+    // time は意図的に依存から除外 (RAF tick 毎に restart してしまうため)
+    // 手動シークは seekTo 経由で直接 startAudioAt を呼ぶ
+  }, [playing, audio]);
+
+  // programme がループ (time 巻戻り) したら音源も頭出し
+  const prevTimeRef = useRef(0);
+  useEffect(() => {
+    if (playing && audio && time < prevTimeRef.current - 1) {
+      startAudioAt(time);
+    }
+    prevTimeRef.current = time;
+  }, [time, playing, audio]);
+
+  // マニュアルシーク: setTime と同時に音源も移動
+  const seekTo = (t) => {
+    setTime(t);
+    if (playing && audio) startAudioAt(t);
   };
   const onMusicSeek = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    setTime(ratio * totalDur);
+    seekTo(ratio * totalDur);
   };
 
   return (
@@ -417,7 +467,7 @@ function Choreo() {
             </div>
           )}
           {formations.map((f, i) => (
-            <div key={f._uid || f.id} className={'form-item'+(i===selIdx?' active':'')} onClick={()=>{setSelIdx(i); setTime(starts[i]+0.01);}}>
+            <div key={f._uid || f.id} className={'form-item'+(i===selIdx?' active':'')} onClick={()=>{setSelIdx(i); seekTo(starts[i]+0.01);}}>
               <div className="fi-num">{String(i+1).padStart(2,'0')}</div>
               <div>
                 <div className="fi-jp">{f.jp}</div>
@@ -464,7 +514,7 @@ function Choreo() {
                   return (
                     <div key={f._uid || f.id} className={'tl-block'+(i===selIdx?' active':'')}
                       style={{ left: left+'%', width: width+'%', background: f.color }}
-                      onClick={() => { setSelIdx(i); setTime(starts[i]+0.01); }}>
+                      onClick={() => { setSelIdx(i); seekTo(starts[i]+0.01); }}>
                       {String(i+1).padStart(2,'0')} {f.jp}
                     </div>
                   );
@@ -503,7 +553,7 @@ function Choreo() {
               </div>
             </div>
             <div className="tl-transport">
-              <button className="tl-tbtn" onClick={()=>{const i=Math.max(0,selIdx-1); setSelIdx(i); setTime(starts[i]+0.01);}}>
+              <button className="tl-tbtn" onClick={()=>{const i=Math.max(0,selIdx-1); setSelIdx(i); seekTo(starts[i]+0.01);}}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 3 L5 8 L12 13 Z M4 3 L4 13"/></svg>
               </button>
               <button className="tl-tbtn play" onClick={()=>setPlaying(p=>!p)}>
@@ -511,7 +561,7 @@ function Choreo() {
                   {playing ? <path d="M4 3 L7 3 L7 13 L4 13 Z M9 3 L12 3 L12 13 L9 13 Z"/> : <path d="M4 3 L13 8 L4 13 Z"/>}
                 </svg>
               </button>
-              <button className="tl-tbtn" onClick={()=>{const i=Math.min(formations.length-1,selIdx+1); setSelIdx(i); setTime(starts[i]+0.01);}}>
+              <button className="tl-tbtn" onClick={()=>{const i=Math.min(formations.length-1,selIdx+1); setSelIdx(i); seekTo(starts[i]+0.01);}}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 3 L11 8 L4 13 Z M12 3 L12 13"/></svg>
               </button>
               <div style={{flex:1}}/>
