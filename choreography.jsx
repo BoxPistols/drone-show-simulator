@@ -87,10 +87,11 @@ function Preview({ formation, time, total }) {
     // Easing pulse on point size
     const progress = total > 0 ? (time % total) / total : 0;
     const easeFn = EASING_FN[formation.easing] || EASING_FN['Ease-both'];
-    // easing カーブを点サイズ+全体不透明度に反映。range 0.55..1.45 で差異を知覚しやすく
+    // easing カーブを点サイズ+全体不透明度に反映。pulseSz 差異は強めに、
+    // alpha は 0.7..1.0 で最低視認性を確保 (ease 値が 0 でも暗すぎない)
     const easedV = easeFn(progress);
-    const pulseSz = 0.55 + easedV * 0.9;
-    const pulseAlpha = 0.55 + easedV * 0.4; // 0.55..0.95
+    const pulseSz = 0.7 + easedV * 0.7;
+    const pulseAlpha = 0.72 + easedV * 0.28;
 
     // Camera + projection — rotate around world Y
     const cx = W/2, cy = H/2 + 12;
@@ -466,6 +467,31 @@ function Choreo() {
     writePresets(next);
     showToast(`削除: "${name}"`);
   };
+
+  // Preset modal: focus trap + Esc で閉じる + 前のフォーカス要素に復帰
+  useEffect(() => {
+    if (!presetPanelOpen) return;
+    const modal = document.querySelector('.pm-panel');
+    if (!modal) return;
+    const getFocusable = () => modal.querySelectorAll('button:not(:disabled), input, [tabindex]:not([tabindex="-1"])');
+    const trap = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); setPresetPanelOpen(false); return; }
+      if (e.key !== 'Tab') return;
+      const f = getFocusable();
+      if (f.length === 0) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    modal.addEventListener('keydown', trap);
+    const prevFocus = document.activeElement;
+    const initial = getFocusable()[0];
+    initial?.focus?.();
+    return () => {
+      modal.removeEventListener('keydown', trap);
+      if (prevFocus && typeof prevFocus.focus === 'function') prevFocus.focus();
+    };
+  }, [presetPanelOpen]);
 
   // --- Audio upload (Phase 2-D) ---
   // 音源ファイルを Web Audio API でデコードし、200 点にダウンサンプルして
@@ -891,17 +917,20 @@ function Choreo() {
           </div>
         </div>
       )}
-      {toast && (
-        <div style={{
-          position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)',
-          background:'rgba(8,11,22,0.94)', color:'#fff',
-          padding:'12px 22px', borderRadius:10,
-          border:'1px solid rgba(49,169,199,0.35)',
-          fontFamily:'var(--mincho)', fontSize:13, letterSpacing:'0.06em',
-          boxShadow:'0 16px 40px rgba(0,0,0,0.5)',
-          zIndex:100, pointerEvents:'none'
-        }}>{toast}</div>
-      )}
+      {/* Toast は aria-live で SR に通知。空要素でも常駐させ (role 保持で読み上げ) */}
+      <div role="status" aria-live="polite" aria-atomic="true" style={{
+        position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)',
+        background: toast ? 'rgba(8,11,22,0.94)' : 'transparent',
+        color:'#fff',
+        padding: toast ? '12px 22px' : 0,
+        borderRadius:10,
+        border: toast ? '1px solid rgba(49,169,199,0.35)' : 'none',
+        fontFamily:'var(--mincho)', fontSize:13, letterSpacing:'0.06em',
+        boxShadow: toast ? '0 16px 40px rgba(0,0,0,0.5)' : 'none',
+        zIndex:100, pointerEvents:'none',
+        opacity: toast ? 1 : 0,
+        transition: 'opacity 0.15s',
+      }}>{toast}</div>
     </>
   );
 }
