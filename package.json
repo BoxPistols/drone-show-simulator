@@ -7,6 +7,7 @@
     "dev": "npx --yes serve -l 8080 .",
     "build": "echo 'Static site — nothing to build.'",
     "start": "npx --yes serve -l 8080 .",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "replay": "node tools/flightpath-replay.mjs"
   }
 }
