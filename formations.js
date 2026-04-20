@@ -140,22 +140,27 @@
     return out;
   }
   function fBear(n) {
-    // Kawaii bear face: round head + small eye dots (voids) + curved smile.
+    // Rilakkuma-style kawaii bear face: wide oval head + rounded ears +
+    // big eye dots (voids) + tiny nose void + subtle M-shaped mouth drones.
     const out = new Float32Array(n * 3);
-    const head = { cx: 0, cy: 0, r: 42 };
+    // Head is an ELLIPSE (wider than tall) for that signature round-oval silhouette
+    const head = { cx: 0, cy: 0, rx: 48, ry: 38 };
     const voids = [
-      { cx: -12, cy: 6, r: 4 },
-      { cx:  12, cy: 6, r: 4 },
+      { cx: -16, cy: 4,  r: 5.5 }, // left eye (big, well-spaced)
+      { cx:  16, cy: 4,  r: 5.5 }, // right eye
+      { cx:   0, cy: -6, r: 2.5 }, // tiny nose dot
     ];
     const ears = [
-      { cx: -28, cy: 36, r: 14 },
-      { cx:  28, cy: 36, r: 14 },
+      { cx: -32, cy: 30, r: 15 },  // larger, wider-positioned
+      { cx:  32, cy: 30, r: 15 },
     ];
+    // M-shaped mouth under the nose (6 points, two tiny v's)
     const mouth = [
-      { x: -9, y: -18 }, { x: -5, y: -21 }, { x: -2, y: -22 },
-      { x:  2, y: -22 }, { x:  5, y: -21 }, { x:  9, y: -18 },
+      { x: -5, y: -15 }, { x: -3, y: -18 }, { x: -1, y: -15 },
+      { x:  1, y: -15 }, { x:  3, y: -18 }, { x:  5, y: -15 },
     ];
-    const headArea = Math.PI * head.r * head.r;
+    // Ellipse area: π·rx·ry
+    const headArea = Math.PI * head.rx * head.ry;
     const voidArea = voids.reduce((s, v) => s + Math.PI * v.r * v.r, 0);
     const earArea  = Math.PI * ears[0].r * ears[0].r;
     const fillableHead = Math.max(0, headArea - voidArea);
@@ -166,14 +171,15 @@
     const nEar2  = remaining - nHead - nEar1;
     const GOLDEN = 2.399963229728653;
     let idx = 0;
+    // Head: Fibonacci unit disc → mapped to ellipse via (rx,ry) scaling
     const HEAD_SAMPLES = Math.ceil(nHead * 1.2);
     let placed = 0;
     for (let k = 0; k < HEAD_SAMPLES && placed < nHead; k++) {
       const t = (k + 0.5) / HEAD_SAMPLES;
       const theta = k * GOLDEN;
-      const rr = Math.sqrt(t) * head.r;
-      const px = rr * Math.cos(theta);
-      const py = rr * Math.sin(theta);
+      const r = Math.sqrt(t);
+      const px = r * Math.cos(theta) * head.rx;
+      const py = r * Math.sin(theta) * head.ry;
       let inVoid = false;
       for (const v of voids) {
         if (Math.hypot(px - v.cx, py - v.cy) < v.r) { inVoid = true; break; }
