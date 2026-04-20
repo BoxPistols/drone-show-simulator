@@ -377,6 +377,15 @@
 }
 .tl-block:hover { filter: brightness(1.15); }
 .tl-block.active { box-shadow: 0 0 0 2px #fff, 0 4px 16px rgba(49,169,199,0.5); z-index: 2; }
+.tl-beat {
+  position: absolute;
+  top: -3px; bottom: -3px;
+  width: 1px;
+  background: rgba(255,255,255,0.04);
+  pointer-events: none;
+  z-index: 0;
+}
+.tl-beat.bar { background: rgba(255,255,255,0.14); }
 .tl-block-handle {
   position: absolute;
   left: 0; top: 0; bottom: 0;

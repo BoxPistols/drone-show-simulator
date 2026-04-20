@@ -170,13 +170,18 @@ function Choreo() {
     else if (selIdx === to) setSelIdx(i);
   };
 
-  // --- Phase 2-F: drag block handle to snap start-time to music ---
-  // 演目 block の左端ハンドルを左右にドラッグすると、直前演目の dur を伸縮して
-  // この block の開始位置を調整する。総時間は変化する (音源に合わせて柔軟に)。
+  // --- Phase 2-G: BPM + beat grid ---
+  const [bpm, setBpm] = useState(120);
+  const beatsPerSec = bpm / 60;
+
+  // --- Phase 2-F + G: drag block handle to snap start-time to beats ---
+  // 演目 block の左端ハンドルを左右にドラッグ → 直前演目の dur を伸縮して
+  // 開始位置を調整。BPM が設定されていれば beat にスナップする。
   const dragRef = useRef(null);
   const MIN_DUR = 5;
+  const SNAP_BEATS = 0.2; // beat 単位のスナップしきい値
   const onHandlePointerDown = (i, e) => {
-    if (i === 0) return; // 先頭は開始位置 0 固定
+    if (i === 0) return;
     e.stopPropagation();
     e.preventDefault();
     const track = e.currentTarget.closest('.tl-row') || e.currentTarget.parentElement;
@@ -185,6 +190,7 @@ function Choreo() {
       startX: e.clientX,
       trackWidth: track.getBoundingClientRect().width,
       origPrevDur: formations[i - 1].dur,
+      prevStart: starts[i - 1],
       totalDurAtStart: formations.reduce((s, f) => s + f.dur, 0),
     };
   };
@@ -194,7 +200,16 @@ function Choreo() {
       if (!d) return;
       const dx = e.clientX - d.startX;
       const dtSec = (dx / d.trackWidth) * d.totalDurAtStart;
-      const newPrevDur = Math.max(MIN_DUR, d.origPrevDur + dtSec);
+      let newPrevDur = d.origPrevDur + dtSec;
+      // Snap: block の新しい start が beat の近傍ならスナップ
+      const candidateStart = d.prevStart + newPrevDur;
+      const beatAt = candidateStart * beatsPerSec;
+      const nearest = Math.round(beatAt);
+      if (Math.abs(beatAt - nearest) < SNAP_BEATS) {
+        const snappedStart = nearest / beatsPerSec;
+        newPrevDur = snappedStart - d.prevStart;
+      }
+      newPrevDur = Math.max(MIN_DUR, newPrevDur);
       setFormations(fs => fs.map((f, idx) =>
         idx === d.idx - 1 ? { ...f, dur: newPrevDur } : f
       ));
@@ -206,7 +221,7 @@ function Choreo() {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
     };
-  }, []);
+  }, [beatsPerSec]);
 
   // --- CRUD: formation add / duplicate / delete ---
   const [addPickerOpen, setAddPickerOpen] = useState(false);
@@ -575,6 +590,19 @@ function Choreo() {
                 ))}
               </div>
               <div className="tl-row">
+                {/* Beat grid: 細線 = beat, 太線 = bar (4 beat ごと) */}
+                {bpm > 0 && Array.from(
+                  {length: Math.min(2000, Math.floor(totalDur * beatsPerSec) + 1)},
+                  (_, i) => {
+                    const t = i / beatsPerSec;
+                    if (t > totalDur) return null;
+                    return (
+                      <div key={'b'+i}
+                           className={'tl-beat' + (i % 4 === 0 ? ' bar' : '')}
+                           style={{left: (t/totalDur)*100 + '%'}} />
+                    );
+                  }
+                )}
                 {formations.map((f, i) => {
                   const left = (starts[i]/totalDur)*100;
                   const width = (f.dur/totalDur)*100;
@@ -638,7 +666,16 @@ function Choreo() {
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 3 L11 8 L4 13 Z M12 3 L12 13"/></svg>
               </button>
               <div style={{flex:1}}/>
-              <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text-3)',letterSpacing:'0.1em'}}>120 BPM ・ 東京湾 ・ 2026-04-28 19:00 JST</div>
+              <div style={{display:'flex',alignItems:'center',gap:10,fontFamily:'var(--mono)',fontSize:11,color:'var(--text-3)',letterSpacing:'0.1em'}}>
+                <label style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                  <input type="number" min="30" max="300" step="1" value={bpm}
+                         onChange={e=>setBpm(Math.max(30, Math.min(300, +e.target.value || 120)))}
+                         style={{width:48,padding:'3px 6px',background:'rgba(255,255,255,0.04)',border:'1px solid var(--hair)',borderRadius:4,color:'var(--text-0)',fontSize:11,fontFamily:'var(--mono)',textAlign:'right'}}
+                         aria-label="BPM" />
+                  <span>BPM</span>
+                </label>
+                <span>・ 東京湾 ・ 2026-04-28 19:00 JST</span>
+              </div>
             </div>
           </div>
         </div>
