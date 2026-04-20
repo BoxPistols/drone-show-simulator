@@ -211,7 +211,8 @@
   applySky(state.sky);
 
   // ---------- Mouse orbit ----------
-  let orbit = { lon: 0, lat: 0, rLon: 0, rLat: 0, dist: 260, rDist: 260, dragging: false, px: 0, py: 0 };
+  // デフォルトはやや右斜め + 下から見上げる構図で立体感を出す (真正面より情報量多い)
+  let orbit = { lon: 25, lat: -12, rLon: 25, rLat: -12, dist: 260, rDist: 260, dragging: false, px: 0, py: 0 };
   const el = renderer.domElement;
   el.style.cursor = 'grab';
   el.addEventListener('pointerdown', e => { orbit.dragging = true; orbit.px = e.clientX; orbit.py = e.clientY; el.style.cursor='grabbing'; });
