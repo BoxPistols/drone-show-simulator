@@ -176,20 +176,36 @@
   const sParam = parseFloat(urlP.get('speed'));
   const initFormation = (Number.isInteger(fParam) && fParam >= 0 && fParam < FORMATIONS.length)
     ? fParam : window.__TWEAKS.formationIndex;
-  const initSpeed = (!isNaN(sParam) && sParam > 0) ? sParam : window.__TWEAKS.speed;
+  // LocalStorage プリセット: 前回のパレット・空・トグル等を復元 (URL param より弱い)
+  const LS_KEY = 'astra-flock-prefs';
+  const saved = (() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
+    catch (e) { return {}; }
+  })();
+  const pick = (a, b) => (a !== undefined ? a : b);
+  const initSpeed = (!isNaN(sParam) && sParam > 0) ? sParam : pick(saved.speed, window.__TWEAKS.speed);
 
   let state = {
     formationIndex: initFormation,
-    palette: window.__TWEAKS.palette,
-    sky: window.__TWEAKS.sky,
-    trails: window.__TWEAKS.trails,
-    rotate: window.__TWEAKS.rotate,
-    glow: window.__TWEAKS.glow,
-    droneSize: window.__TWEAKS.droneSize,
+    palette:   pick(saved.palette,   window.__TWEAKS.palette),
+    sky:       pick(saved.sky,       window.__TWEAKS.sky),
+    trails:    pick(saved.trails,    window.__TWEAKS.trails),
+    rotate:    pick(saved.rotate,    window.__TWEAKS.rotate),
+    glow:      pick(saved.glow,      window.__TWEAKS.glow),
+    droneSize: pick(saved.droneSize, window.__TWEAKS.droneSize),
     speed: initSpeed,
     playing: true,
     showTime: FORMATIONS[initFormation] ? FORMATIONS[initFormation].start + 0.01 : 0,
   };
+  function savePrefs() {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        palette: state.palette, sky: state.sky,
+        trails: state.trails, rotate: state.rotate, glow: state.glow,
+        droneSize: state.droneSize, speed: state.speed,
+      }));
+    } catch (e) {}
+  }
 
   applyPalette(state.palette);
   applySky(state.sky);
@@ -392,6 +408,7 @@
   try { window.parent.postMessage({ type: '__edit_mode_available' }, '*'); } catch(e) {}
   function persist(edits) {
     try { window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*'); } catch(e) {}
+    savePrefs();
   }
 
   // ---------- Animation loop ----------

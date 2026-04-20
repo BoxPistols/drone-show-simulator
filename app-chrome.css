@@ -178,3 +178,53 @@ body.ops {
   display: flex;
   overflow: hidden;
 }
+
+/* ==== Responsive (mobile / tablet) ==== */
+@media (max-width: 860px) {
+  .app-nav { padding: 0 12px; height: 48px; gap: 2px; }
+  .ops-wrap { top: 48px; }
+  .nav-brand { padding-right: 10px; margin-right: 4px; }
+  .nav-mark { width: 26px; height: 26px; }
+  .nav-brand-text .jp { font-size: 12px; letter-spacing: 0.08em; }
+  .nav-brand-text .en { font-size: 7px; letter-spacing: 0.18em; }
+  .nav-item { padding: 0 8px; font-size: 11px; height: 32px; }
+  .nav-item .en { display: none; }
+  .nav-live { padding: 4px 8px; margin-right: 6px; font-size: 8px; }
+  .nav-live > span:last-child { display: none; }
+  .nav-user { padding-left: 6px; }
+  .nav-user-text { display: none; }
+  .nav-user-avatar { width: 26px; height: 26px; }
+}
+@media (max-width: 520px) {
+  .nav-brand-text .en { display: none; }
+  .nav-item .jp { letter-spacing: 0.02em; }
+  .nav-live { display: none; }
+}
+
+/* ==== Ops page layouts — mobile stack ==== */
+@media (max-width: 860px) {
+  /* Fleet */
+  .fleet-header { padding: 14px 14px 12px; flex-direction: column; gap: 12px; align-items: flex-start; }
+  .fh-kpis { gap: 16px; flex-wrap: wrap; }
+  .kpi-value { font-size: 20px; }
+  .fleet-toolbar { padding: 10px 14px; gap: 6px; flex-wrap: wrap; }
+  .tb-search { max-width: none; width: 100%; }
+  .fleet-body { flex-direction: column; }
+  .drone-grid { padding: 12px 14px; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
+  .drawer { width: 100% !important; }
+
+  /* Choreography */
+  .ch-head { padding: 14px 14px 12px; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .ch-meta { gap: 14px; flex-wrap: wrap; }
+  .ch-body { flex-direction: column; overflow: auto; }
+  .ch-left, .ch-right { width: 100% !important; max-height: 220px; overflow-y: auto; }
+  .ch-preview { min-height: 260px; }
+  .ch-timeline { height: 160px; }
+
+  /* Schedule */
+  .sc-head { padding: 14px 14px 12px; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .sc-body { flex-direction: column; overflow: auto; }
+  .sc-drawer { width: 100% !important; border-left: none; border-top: 1px solid var(--hair); padding: 18px 14px 24px; }
+  .sc-cal { padding: 14px; }
+  .cal-cell { padding: 4px 6px; }
+}
