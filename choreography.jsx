@@ -179,6 +179,29 @@ function Choreo() {
   const sel = formations[selIdx];
   const localTime = time - starts[selIdx];
 
+  // --- Dirty state tracking ---
+  // formations を最後に save/export/load した時点との diff を検出、beforeunload で警告
+  const [isDirty, setIsDirty] = useState(false);
+  const cleanMarkerRef = useRef(null);
+  useEffect(() => {
+    // 初回レンダで clean marker を初期化
+    if (cleanMarkerRef.current === null) {
+      cleanMarkerRef.current = JSON.stringify(formations);
+      return;
+    }
+    setIsDirty(JSON.stringify(formations) !== cleanMarkerRef.current);
+  }, [formations]);
+  const markClean = (next) => {
+    cleanMarkerRef.current = JSON.stringify(next || formations);
+    setIsDirty(false);
+  };
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
   // --- Undo / Redo history ---
   // 離散アクション (CRUD / reorder / import / preset) のスナップショットを保持。
   // slider 連続更新 (updateSel) は含めない (スタック爆発を避ける)。
@@ -375,6 +398,7 @@ function Choreo() {
     a.href = url; a.download = `astra-flock-show-${stamp}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    markClean();
     const audioTag = audio ? ` + 音源 meta` : '';
     showToast(`書出完了: ${formations.length} 演目 + BPM${audioTag}`);
   };
@@ -445,6 +469,7 @@ function Choreo() {
         const stamp = Date.now();
         const normalized = res.formations.map((f, i) => ({ ...f, _uid: `imported-${stamp}-${i}` }));
         setFormations(normalized);
+        markClean(normalized);
         setSelIdx(0);
         seekTo(0);
         setAddPickerOpen(false);
@@ -468,7 +493,8 @@ function Choreo() {
   };
   const onSave = () => {
     try { localStorage.setItem('astra-flock-programme', JSON.stringify(formations)); } catch(e){}
-    showToast(`保存: ${formations.length} 演目を localStorage に記録 (mock)`);
+    markClean();
+    showToast(`保存: ${formations.length} 演目を localStorage に記録`);
   };
 
   // --- Named presets in localStorage ---
@@ -506,6 +532,7 @@ function Choreo() {
       _uid: `preset-${Date.now()}-${i}`,
     }));
     setFormations(restored);
+    markClean(restored);
     setSelIdx(0);
     seekTo(0);
     setPresetPanelOpen(false);
@@ -668,7 +695,10 @@ function Choreo() {
             <button className="ch-btn ghost" onClick={onExport} title="演目 + BPM + 音源 meta">書出 .json</button>
             <button className="ch-btn ghost" onClick={onExportFlightPath} title="機体別フライトパス (実機連携用)">機体書出</button>
             <button className="ch-btn" onClick={onSimulate}>シミュ実行</button>
-            <button className="ch-btn primary" onClick={onSave}>保存</button>
+            <button className="ch-btn primary" onClick={onSave} title={isDirty ? '未保存の変更あり' : '保存済'}>
+              {isDirty && <span aria-hidden="true" style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:'#fff',marginRight:6,verticalAlign:'middle'}}/>}
+              保存{isDirty && '*'}
+            </button>
             <input type="file" accept="application/json,.json" ref={fileInputRef} onChange={onFileChosen} style={{display:'none'}} aria-hidden="true"/>
           </div>
         </div>
