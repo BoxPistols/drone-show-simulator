@@ -149,23 +149,23 @@
     const out = new Float32Array(n * 3);
     const head = { cx: 0, cy: 0, rx: 52, ry: 42 };
     const voids = [
-      { cx: -22, cy: -4, r: 6.5 }, // left eye — wider + bigger + slight below center
-      { cx:  22, cy: -4, r: 6.5 }, // right eye
+      { cx: -24, cy: -8, r: 7 }, // left eye — 更に外・下・大きく
+      { cx:  24, cy: -8, r: 7 }, // right eye
     ];
-    // Muzzle: wide flat horizontal oval (the signature light muzzle patch)
-    const muzzle = { cx: 0, cy: -22, rx: 18, ry: 9 };
+    // Muzzle: wide flat horizontal oval — 目より下に配置して重なり回避
+    const muzzle = { cx: 0, cy: -25, rx: 18, ry: 8 };
     const ears = [
-      { cx: -36, cy: 30, r: 17 }, // attached/slightly-overlapping head top
-      { cx:  36, cy: 30, r: 17 },
+      { cx: -38, cy: 28, r: 17 }, // 横寄り・頭の上側にやや食い込む
+      { cx:  38, cy: 28, r: 17 },
     ];
-    // Nose: 3-point inverted triangle at top of muzzle (around y=-16)
+    // Nose: 3-point inverted triangle at top of muzzle
     const nose = [
-      { x: -3, y: -16 }, { x:  3, y: -16 }, { x: 0, y: -19 },
+      { x: -3, y: -19 }, { x:  3, y: -19 }, { x: 0, y: -22 },
     ];
-    // Mouth: U-curve at bottom of muzzle (around y=-25..-27)
+    // Mouth: U-curve at bottom of muzzle
     const mouth = [
-      { x: -4, y: -25 }, { x: -1.5, y: -27 },
-      { x:  1.5, y: -27 }, { x:  4, y: -25 },
+      { x: -4, y: -28 }, { x: -1.5, y: -30 },
+      { x:  1.5, y: -30 }, { x:  4, y: -28 },
     ];
     const features = [...nose, ...mouth]; // 7 drones
 
