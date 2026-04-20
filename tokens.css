@@ -220,7 +220,12 @@
    TYPOGRAPHY — base + semantic
    Fluid type with clamp() with fluid scaling
    ========================================================== */
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
 
 body {
   font-family: var(--font-sans);
@@ -228,6 +233,13 @@ body {
   background: var(--color-bg);
   line-height: 1.6;
   font-size: 1rem;
+  /* JP 欧文混在時の balancing (palt で詰め組み) */
+  font-feature-settings: "palt" 1, "kern" 1;
+}
+
+/* 数字はタブナム (タイミング表示等のチラつき防止) */
+.mono, code, pre, [class*="tl-time"], [class*="stat-value"], [class*="fi-dur"] {
+  font-variant-numeric: tabular-nums;
 }
 
 h1, h2, h3, h4, h5, h6,
