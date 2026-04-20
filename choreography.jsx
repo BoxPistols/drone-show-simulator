@@ -349,6 +349,50 @@ function Choreo() {
     writePresets(next);
     showToast(`削除: "${name}"`);
   };
+
+  // --- Audio upload (Phase 2-D) ---
+  // 音源ファイルを Web Audio API でデコードし、200 点にダウンサンプルして
+  // 波形として表示する。再生同期は後続 PR (feat/waveform-sync) で対応。
+  const [audio, setAudio] = useState(null); // { name, duration, samples: number[] }
+  const audioInputRef = useRef();
+  const audioCtxRef = useRef();
+  const onAudioClick = () => audioInputRef.current?.click();
+  const onAudioChosen = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const arrayBuf = await file.arrayBuffer();
+      const audioBuffer = await audioCtxRef.current.decodeAudioData(arrayBuf);
+      // 波形表示用に 200 点にダウンサンプル (peak detection)
+      const channel = audioBuffer.getChannelData(0);
+      const N = 200;
+      const step = Math.max(1, Math.floor(channel.length / N));
+      const samples = new Array(N);
+      for (let i = 0; i < N; i++) {
+        let peak = 0;
+        const start = i * step;
+        const end = Math.min(start + step, channel.length);
+        for (let j = start; j < end; j++) {
+          const v = Math.abs(channel[j]);
+          if (v > peak) peak = v;
+        }
+        samples[i] = peak;
+      }
+      setAudio({ name: file.name, duration: audioBuffer.duration, samples });
+      showToast(`音源読込: ${file.name} (${Math.round(audioBuffer.duration)}s)`);
+    } catch (err) {
+      showToast('音源読込エラー: ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
+  const clearAudio = () => {
+    setAudio(null);
+    showToast('音源を解除しました');
+  };
   const onMusicSeek = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -453,13 +497,34 @@ function Choreo() {
                 })}
                 <div className="tl-playhead" style={{left: (time/totalDur)*100+'%'}}/>
               </div>
-              <div style={{fontFamily:'var(--mincho)', fontSize:10, color:'var(--text-3)', marginTop: 4, letterSpacing:'0.08em'}}>音楽トラック ・ Music <span style={{color:'var(--text-3)',fontSize:9,marginLeft:6}}>(click でシーク)</span></div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:4}}>
+                <div style={{fontFamily:'var(--mincho)', fontSize:10, color:'var(--text-3)', letterSpacing:'0.08em'}}>
+                  {audio
+                    ? <>音源 ・ {audio.name} <span style={{color:'var(--text-3)',fontSize:9,marginLeft:6,fontFamily:'var(--mono)'}}>{fmt(audio.duration)}</span></>
+                    : <>音楽トラック ・ Music <span style={{color:'var(--text-3)',fontSize:9,marginLeft:6}}>(click でシーク)</span></>}
+                </div>
+                <div style={{display:'flex',gap:6}}>
+                  <button onClick={onAudioClick} style={{fontSize:9,padding:'3px 8px',background:'transparent',border:'1px solid var(--hair)',color:'var(--text-2)',borderRadius:4,cursor:'pointer',fontFamily:'"Poppins",sans-serif',letterSpacing:'0.14em',textTransform:'uppercase'}}>
+                    {audio ? '差替' : '+ 音源'}
+                  </button>
+                  {audio && (
+                    <button onClick={clearAudio} style={{fontSize:9,padding:'3px 8px',background:'transparent',border:'1px solid rgba(239,68,68,0.3)',color:'var(--err)',borderRadius:4,cursor:'pointer',fontFamily:'"Poppins",sans-serif',letterSpacing:'0.14em',textTransform:'uppercase'}}>解除</button>
+                  )}
+                  <input type="file" accept="audio/*" ref={audioInputRef} onChange={onAudioChosen} style={{display:'none'}} aria-hidden="true"/>
+                </div>
+              </div>
               <div className="music-track" onClick={onMusicSeek} style={{cursor:'pointer'}} title="Click to seek">
                 <svg viewBox="0 0 800 36" preserveAspectRatio="none">
-                  {Array.from({length:200},(_,i)=>{
-                    const h = 6 + Math.abs(Math.sin(i*0.27)*Math.cos(i*0.11))*24;
-                    return <rect key={i} x={i*4} y={18-h/2} width={2} height={h} fill="rgba(255,255,255,0.35)"/>;
-                  })}
+                  {(audio ? audio.samples : Array.from({length:200},(_,i)=> Math.abs(Math.sin(i*0.27)*Math.cos(i*0.11))))
+                    .map((sample, i) => {
+                      const h = audio ? (sample * 30 + 2) : (6 + sample * 24);
+                      const progress = time / totalDur;
+                      const rectProgress = i / 200;
+                      const fill = audio
+                        ? (rectProgress <= progress ? 'var(--moon)' : 'rgba(255,255,255,0.35)')
+                        : 'rgba(255,255,255,0.35)';
+                      return <rect key={i} x={i*4} y={18-h/2} width={2} height={h} fill={fill}/>;
+                    })}
                 </svg>
               </div>
             </div>
