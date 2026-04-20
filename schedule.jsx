@@ -215,6 +215,40 @@ function Schedule() {
                 ))}
               </div>
 
+              {/* Phase 3-I: 自動 state summary */}
+              {(() => {
+                const now = new Date('2026-04-19T00:00:00+09:00'); // mock today
+                const target = new Date(selDate + 'T' + (selEvent.time || '19:00') + ':00+09:00');
+                const diffMs = target - now;
+                const hours = Math.round(diffMs / 3600000);
+                const days = Math.floor(hours / 24);
+                const hRemain = hours - days * 24;
+                const fleetReady = 600;
+                const fleetTotal = 660;
+                const audioSynced = !!selEvent.weather; // mock: weather 情報あり = 同期済みとみなす
+                const weather = selEvent.weather;
+                const weatherOK = weather && weather.wind < 5 && weather.visibility === '良好';
+                const items = [
+                  { label: 'カウントダウン', value: diffMs > 0 ? `H-${days}d ${hRemain}h` : '公演済', ok: diffMs > 0 },
+                  { label: '機体稼働', value: `${fleetReady} / ${fleetTotal} 機`, ok: fleetReady >= 600 },
+                  { label: '気象条件', value: weather ? (weatherOK ? '良好' : '要確認') : '未取得', ok: weatherOK },
+                  { label: '音響同期', value: audioSynced ? '確認済' : '未確認', ok: audioSynced },
+                ];
+                return (
+                  <div className="sect">
+                    <div className="sect-head"><span>Pre-flight State</span><span className="jp">出発準備状況</span></div>
+                    <div className="pf-grid">
+                      {items.map((it, i) => (
+                        <div key={i} className={'pf-item' + (it.ok ? ' ok' : ' warn')}>
+                          <div className="pf-label">{it.label}</div>
+                          <div className="pf-value">{it.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="sect">
                 <div className="sect-head"><span>Pre-flight Checklist</span><span className="jp">離陸前確認</span></div>
                 <div className="checklist">
@@ -230,7 +264,7 @@ function Schedule() {
                   ))}
                 </div>
                 <div style={{marginTop:12, fontSize:11, color:'var(--text-3)', fontFamily:'"Poppins",sans-serif', letterSpacing:'0.14em'}}>
-                  {checklist.filter(c => c.done).length} / {checklist.length} 完了 · H-240h
+                  {checklist.filter(c => c.done).length} / {checklist.length} 完了
                 </div>
               </div>
             </>
