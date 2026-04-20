@@ -535,4 +535,62 @@
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
+
+  // ---------- Accessibility: prefers-reduced-motion ----------
+  // auto-rotate をデフォルトで無効化。モーション感度の高いユーザー配慮
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    state.rotate = false;
+    const tgRot = $('tg-rotate');
+    if (tgRot) tgRot.classList.remove('on');
+  }
+
+  // ---------- Fullscreen toggle ----------
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.();
+    }
+  }
+  const fsBtn = $('btn-fullscreen');
+  if (fsBtn) fsBtn.addEventListener('click', toggleFullscreen);
+
+  // ---------- Keyboard shortcuts ----------
+  // Space: 再生/停止, ←/→: 前/次, F: 全画面, T: tweaks パネル,
+  // +/-: 速度, 1-9: 演目ジャンプ
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key) {
+      case ' ':
+        e.preventDefault();
+        $('btn-play').click();
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        $('btn-prev').click();
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        $('btn-next').click();
+        break;
+      case 'f': case 'F':
+        toggleFullscreen();
+        break;
+      case 't': case 'T':
+        $('tweaks-panel').classList.toggle('open');
+        document.body.classList.toggle('tweaks-open');
+        break;
+      case '+': case '=':
+        cycleSpeed(1);
+        break;
+      case '-': case '_':
+        cycleSpeed(-1);
+        break;
+      default: {
+        const n = parseInt(e.key, 10);
+        if (n >= 1 && n <= FORMATIONS.length) seekToFormation(n - 1);
+      }
+    }
+  });
 })();

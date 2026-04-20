@@ -49,6 +49,10 @@ function Schedule() {
   const [year, setYear] = useState(2026);
   const [month, setMonth] = useState(3); // April (0-indexed)
   const [selDate, setSelDate] = useState('2026-04-28');
+  const [checklist, setChecklist] = useState(CHECKLIST);
+  const toggleCheck = (i) => {
+    setChecklist(c => c.map((ci, idx) => idx === i ? {...ci, done: !ci.done, warn: false} : ci));
+  };
 
   // --- Mock interactions ---
   const [toast, setToast] = useState('');
@@ -214,8 +218,9 @@ function Schedule() {
               <div className="sect">
                 <div className="sect-head"><span>Pre-flight Checklist</span><span className="jp">離陸前確認</span></div>
                 <div className="checklist">
-                  {CHECKLIST.map((ci, i) => (
-                    <div key={i} className={`check-item ${ci.done?'done':''}`}>
+                  {checklist.map((ci, i) => (
+                    <div key={i} className={`check-item ${ci.done?'done':''}`} onClick={()=>toggleCheck(i)} style={{cursor:'pointer'}} role="button" tabIndex={0}
+                         onKeyDown={e => (e.key === ' ' || e.key === 'Enter') && (e.preventDefault(), toggleCheck(i))}>
                       <div className={`check-box ${ci.done?'on':''} ${ci.warn?'warn':''}`}>{ci.done?'✓':ci.warn?'!':''}</div>
                       <div style={{flex:1}}>
                         <div>{ci.label}</div>
@@ -225,7 +230,7 @@ function Schedule() {
                   ))}
                 </div>
                 <div style={{marginTop:12, fontSize:11, color:'var(--text-3)', fontFamily:'"Poppins",sans-serif', letterSpacing:'0.14em'}}>
-                  5 / {CHECKLIST.length} 完了 · H-240h
+                  {checklist.filter(c => c.done).length} / {checklist.length} 完了 · H-240h
                 </div>
               </div>
             </>

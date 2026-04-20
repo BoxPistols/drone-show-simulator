@@ -484,6 +484,8 @@
     padding: 0 14px;
     letter-spacing: 0.06em;
     font-variant-numeric: tabular-nums;
+    background: transparent;
+    border: none;
     border-left: 1px solid var(--hair);
     height: 24px;
     display: flex;
@@ -492,6 +494,10 @@
     user-select: none;
   }
   .t-speed:hover { color: #fff; }
+  .t-speed:focus-visible, .t-btn:focus-visible {
+    outline: 2px solid var(--color-moonstone);
+    outline-offset: 2px;
+  }
 
   /* Tweaks panel */
   #tweaks-panel {
@@ -769,21 +775,26 @@
 </div>
 
 <!-- Transport controls -->
-<div class="transport">
-  <button class="t-btn" id="btn-prev" title="前の演目">
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+<div class="transport" role="toolbar" aria-label="再生コントロール">
+  <button class="t-btn" id="btn-prev" aria-label="前の演目 (←)" title="前の演目 ・ ←">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M12 3 L5 8 L12 13 Z M4 3 L4 13"></path>
     </svg>
   </button>
-  <button class="t-btn play" id="btn-play" title="再生">
-    <svg id="play-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 3 L7 3 L7 13 L4 13 Z M9 3 L12 3 L12 13 L9 13 Z"></path></svg>
+  <button class="t-btn play" id="btn-play" aria-label="再生 / 一時停止 (Space)" title="再生 / 一時停止 ・ Space">
+    <svg id="play-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 3 L7 3 L7 13 L4 13 Z M9 3 L12 3 L12 13 L9 13 Z"></path></svg>
   </button>
-  <button class="t-btn" id="btn-next" title="次の演目">
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <button class="t-btn" id="btn-next" aria-label="次の演目 (→)" title="次の演目 ・ →">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M4 3 L11 8 L4 13 Z M12 3 L12 13"></path>
     </svg>
   </button>
-  <div class="t-speed" id="btn-speed">2.0×</div>
+  <button class="t-speed" id="btn-speed" aria-label="再生速度 (+/-)" title="Click / ホイールで変速 ・ Shift+Click で逆送り ・ +/−">2.0×</button>
+  <button class="t-btn" id="btn-fullscreen" aria-label="全画面 (F)" title="全画面 ・ F">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M2 6 V2 H6 M14 6 V2 H10 M2 10 V14 H6 M14 10 V14 H10"></path>
+    </svg>
+  </button>
 </div>
 
 <!-- Programme timeline -->
