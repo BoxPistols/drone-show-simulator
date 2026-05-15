@@ -18,6 +18,7 @@ src/styles/tokens.css
 src/styles/chrome.css
 src/routes/show/show.css
 src/routes/choreography/choreography.css
+src/routes/fleet/fleet.css
 README.md
 HANDOFF-README.md
 vercel.json
