@@ -3,7 +3,7 @@
 > **星群** — A flock of 660 artificial stars.
 
 東京湾の夜空に 660 機のドローンで 9 演目を描く、Three.js ベースの観賞ビューアと
-振付エディタ。静的サイト 1 枚で動作、ビルド不要。
+振付エディタ。Vite + React + TypeScript の SPA。
 
 **本番**: https://drone-show-simulator.vercel.app
 
@@ -13,26 +13,25 @@
 
 ## 機能ハイライト
 
-### 観賞 (`/drone-show.html`)
+### 観賞 (`/`)
 - Three.js ポイントクラウドで **660 機 × 9 演目** を描画
 - 演目: 球体 → 単螺旋 → 円環 → 波紋 → **熊 (Rilakkuma-ish)** → 二重螺旋 → 立方体 → 心臓 → **銀河 (フィナーレ)**
 - 下から見上げる斜めカメラデフォルト、マウスドラッグ / ホイールでオービット
 - キーボード: `Space` 再生, `←→` 演目, `1-9` ジャンプ, `+-` 速度, `F` 全画面, `S` スクリーンショット, `?` ヘルプ, `Esc` 閉じる
 - `?f=<0..8>&speed=<n>` で URL deep-link、localStorage で設定永続化
 
-### 振付エディタ (`/choreography.html`)
-- 演目の **追加 / 複製 / 削除 / ↑↓ 並び替え**
-- パラメータ (高度 / 広がり / 遷移速度 / 補間曲線 / パレット上書き / 配分機数) を
-  全てプレビューに視覚反映
-- 3D 投影プレビュー (show.js と同じ `FORMATIONS.targets` を Y 軸回転 + 透視投影で再現)
+### 振付エディタ (`/choreography`)
+- 演目の **追加 / 複製 / 削除 / ↑↓ 並び替え** + undo/redo (`Cmd/Ctrl+Z`, `Y`)
+- パラメータ (高度 / 広がり / 遷移速度 / 補間曲線 / パレット上書き / 配分機数) を全てプレビューに視覚反映
+- 3D 投影プレビュー (show と同じ `formations` を Y 軸回転 + 透視投影で再現)
 - **音源 upload** + 波形描画 (Web Audio API `decodeAudioData` + peak detection)
 - 再生/停止/シーク/ループ同期、block 左端ハンドルドラッグで開始時刻調整
 - **BPM + ビートグリッド** + snap-to-beat (threshold 0.2 beat)
 - **JSON round-trip**: 演目書出 / 読込 / 名前付きプリセット (localStorage)
 - **機体書出**: 実機連携用 flightpath JSON (schema `astra-flock-flightpath/1`)
 
-### 運用 (`/fleet.html`, `/schedule.html`)
-- Fleet: 660 機 roster + 詳細 drawer + 4 アクション (test/recalibrate/log/maint)
+### 運用 (`/fleet`, `/schedule`)
+- Fleet: 660 機 roster + 詳細 drawer + 4 アクション (test/recalibrate/log/maint), grid/table 切替
 - Schedule: 月カレンダー + イベント drawer + pre-flight state サマリ + checklist
 
 ---
@@ -40,93 +39,67 @@
 ## クイックスタート
 
 ```bash
-# ローカル起動
-npm run dev
+# 依存インストール (pnpm 必須、Node 22+)
+pnpm install
+
+# 開発サーバー (Vite, HMR)
+pnpm dev
 # → http://localhost:8080
 
-# テスト (22 件, 200ms)
-npm test
+# 本番ビルド (dist/)
+pnpm build
 
-# 機体書出 JSON を再生デモ
-npm run replay astra-flock-flightpath-2026-04-20.json [speed=20]
+# プレビュー (build 後)
+pnpm preview
 ```
-
-Python があれば `python3 -m http.server 8080` でも同じ。
 
 ---
 
 ## デプロイ (Vercel)
 
-リポジトリを Vercel に接続すれば静的サイトとして自動認識。
+`vercel.json` で Vite preset を明示。リポジトリを Vercel に接続すれば自動デプロイ。
 
-- Framework Preset: **Other**
-- Build Command: 空 (`npm run build` は no-op)
-- Output Directory: `.` (`vercel.json` で設定)
+| 設定 | 値 |
+|---|---|
+| Framework | `vite` |
+| Build Command | `pnpm build` |
+| Output Directory | `dist` |
+| SPA fallback | `/(.*) → /index.html` |
 
-`vercel.json` には以下を集約:
-
-- `/` → `/drone-show.html` rewrite
-- セキュリティヘッダ一式 (HSTS / CSP / COOP / X-Frame-Options / Permissions-Policy)
+セキュリティヘッダ一式 (HSTS / CSP / COOP / X-Frame-Options / Permissions-Policy) も `vercel.json` に集約。CSP は `script-src 'self'` のみで `unsafe-eval` 不要 (Vite ビルド済 JS のため)。
 
 ---
 
 ## アーキテクチャ
 
 ```
-┌─ drone-show.html ─────────────────────── 観賞
-│    └── show.js (Three.js scene + animation)
-│         └── window.AstraFlock ← formations.js
-│
-├─ choreography.html ───────────────────── 振付
-│    └── choreography.jsx (React via Babel standalone)
-│         └── window.AstraFlock ← formations.js
-│
-├─ fleet.html / schedule.html ──────────── 運用
-│    └── fleet.jsx / schedule.jsx
-│         └── window.AstraFlock.FLEET ← formations.js
-│
-└─ formations.js (shared single source of truth)
-     ├── FORMATIONS  (9 演目 + 位置計算関数)
-     ├── PALETTES    (5 色パレット)
-     ├── SKIES       (3 空パターン)
-     ├── FLEET       (機体分布: total/active/charging/standby/maint)
-     └── TOTAL_TIME
+src/
+├── main.tsx              ─ React + React Router エントリ
+├── routes/
+│   ├── show/             ─ Three.js scene を React でラップ
+│   ├── choreography/     ─ store + components + audio sync
+│   ├── fleet/            ─ roster + grid/table + drawer
+│   ├── schedule/         ─ Calendar + EventDrawer
+│   └── NotFoundPage.tsx  ─ 404 (React Router catch-all)
+├── components/           ─ 共通 UI primitives + icons
+├── hooks/                ─ useDirty, useKeyboard 等
+├── lib/                  ─ formations / showSchema / shapes (純粋関数)
+├── data/                 ─ fleet / schedule の typed data
+├── styles/               ─ tokens.css + chrome.css + global.css + reset.css
+├── types/
+└── test/                 ─ vitest setup
 ```
 
-### ディレクトリ
-
-```
-.
-├── drone-show.html        ─ メイン観賞ビュー
-├── choreography.html/.jsx ─ 振付エディタ
-├── fleet.html/.jsx        ─ 機体管理
-├── schedule.html/.jsx     ─ 運航スケジュール
-├── 404.html               ─ Not Found
-├── formations.js          ─ 共有 FORMATIONS / PALETTES / FLEET
-├── show.js                ─ Three.js シミュレーション
-├── tokens.css             ─ デザイン token (色・タイポ)
-├── app-chrome.css         ─ 運用 3 ページ共通 chrome
-├── favicon.svg + PNG 一式 ─ favicon / apple-touch
-├── og-image.png           ─ OG カード
-├── sitemap.xml + robots.txt
-├── vercel.json            ─ リライト + セキュリティヘッダ
-├── test/                  ─ node:test (22 件)
-├── tools/                 ─ flightpath-replay.mjs 等
-└── .github/workflows/     ─ CI (npm test)
-```
+ルーティングは React Router v6。各 route 配下に専用 components/ + hooks/ + types.ts。
 
 ---
 
 ## セキュリティ
 
-- 全外部 CDN (`unpkg.com`) には **SRI hash** (`integrity="sha384-..."`)
-- CSP で `script-src / style-src / img-src / connect-src` 明示許可
-- HSTS / X-Frame-Options DENY / COOP / Referrer-Policy
-- localStorage にユーザー入力 (プリセット名等) 保存するが、React が JSX 挿入時に自動エスケープ
-
-`script-src` に `'unsafe-eval'` が入っているのは `fleet/choreography/schedule.jsx` を
-**Babel Standalone** で実行時トランスパイルしているため。JSX を事前ビルド
-(Vite / esbuild) すれば外せる → 別 PR で検討。
+- CSP `default-src 'self'` 基線 + `script-src 'self'` (CDN 経由スクリプト無し)
+- Google Fonts (`fonts.googleapis.com` / `fonts.gstatic.com`) のみ style/font で許可
+- HSTS / X-Frame-Options DENY / COOP same-origin / Referrer-Policy `strict-origin-when-cross-origin`
+- localStorage 入出力は JSON.parse 失敗時にデフォルト fallback
 
 ---
 
@@ -134,25 +107,45 @@ Python があれば `python3 -m http.server 8080` でも同じ。
 
 | Command | 内容 |
 |---|---|
-| `npm run dev` | `npx serve` で localhost:8080 起動 |
-| `npm run build` | no-op (静的のため) |
-| `npm run start` | 本番 serve (dev と同じ) |
-| `npm test` | node:test で 22 件 (formations smoke + site smoke) |
-| `npm run replay <file>` | flightpath JSON の CLI 再生デモ |
+| `pnpm dev` | Vite dev サーバー (HMR, http://localhost:8080) |
+| `pnpm build` | 本番ビルド → `dist/` |
+| `pnpm preview` | build 成果物のローカル配信 (http://localhost:8080) |
+| `pnpm typecheck` | `tsc -b --pretty` |
+| `pnpm lint` | ESLint (`--max-warnings=0`) |
+| `pnpm lint:fix` | ESLint + autofix |
+| `pnpm format` / `format:check` | Prettier |
+| `pnpm test` | Vitest (113 件, ~2s) |
+| `pnpm test:watch` / `test:coverage` | watch / カバレッジ |
+| `pnpm test:e2e` | Playwright E2E (18 件, chromium) |
+| `pnpm test:e2e:install` | chromium ブラウザ初回取得 |
+| `pnpm test:e2e:ui` | Playwright UI モード |
+| `pnpm replay <file>` | flightpath JSON の CLI 再生デモ |
+
+### pre-commit
+
+`husky` + `lint-staged` で staged ファイルのみ:
+- `*.{ts,tsx}` → `eslint --fix --no-warn-ignored` + `prettier`
+- 他 → `prettier`
+
+Vitest / E2E は CI 側で担保。
+
+---
+
+## CI
+
+`.github/workflows/test.yml` (push to main / 全 pull_request):
+- `test` job: lint → typecheck → format:check → vitest → replay syntax → build
+- `e2e` job (`needs: test`): chromium キャッシュ → build → playwright → report artifact
 
 ---
 
 ## ハンドオフ元
 
-Claude Design (claude.ai/design) で HTML/CSS/JS プロトタイプとして作成されたものを、
-コード実装向けにこのリポジトリへ移植。デザインの意図・使い方は
-[`HANDOFF-README.md`](./HANDOFF-README.md) を参照。
+Claude Design (claude.ai/design) で HTML/CSS/JS プロトタイプとして作成されたものを、React SPA として再実装。デザインの意図・使い方は [`HANDOFF-README.md`](./HANDOFF-README.md) を参照。
 
 ## ライセンス / クレジット
 
-- Three.js (MIT)
-- React / React-DOM (MIT)
-- Babel Standalone (MIT)
+- Three.js (MIT) / React / React-DOM / React Router (MIT)
 - Poppins / Shippori Mincho (Google Fonts, OFL)
 
 本リポジトリ自体は内部 PoC。外部配布時はライセンス明記要。
