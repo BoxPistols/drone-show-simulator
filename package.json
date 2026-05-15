@@ -27,6 +27,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:legacy": "node --test test/*.test.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "test:e2e:ui": "playwright test --ui",
     "replay": "node tools/flightpath-replay.mjs"
   },
   "dependencies": {
@@ -36,7 +39,9 @@
     "three": "0.160.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.60.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.5.2",

@@ -10,6 +10,8 @@ show-schema.js
 *.jsx
 test/
 tools/
+playwright-report/
+test-results/
 
 # legacy assets — P9 will migrate or remove these
 tokens.css
