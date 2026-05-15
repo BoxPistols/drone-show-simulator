@@ -13,6 +13,9 @@ coverage/
 .tsbuildinfo
 *.tsbuildinfo
 .vite/
+playwright-report/
+test-results/
+.playwright/
 
 # editor
 .vscode/*

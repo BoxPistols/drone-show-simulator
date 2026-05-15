@@ -84,48 +84,56 @@ export function Calendar({
         </div>
       </div>
       <div className="cal-grid" role="grid" aria-label="日付グリッド">
-        {DOW_JP.map((d, i) => (
-          <div
-            key={d}
-            role="columnheader"
-            className={`cal-dow ${i === 0 ? 'sun' : ''} ${i === 6 ? 'sat' : ''}`}
-          >
-            {d} · {DOW_EN[i]}
+        {/* role=row wrappers use display:contents so the CSS grid layout
+            is preserved while satisfying axe-core's aria-required-children. */}
+        <div role="row" style={{ display: 'contents' }}>
+          {DOW_JP.map((d, i) => (
+            <div
+              key={d}
+              role="columnheader"
+              className={`cal-dow ${i === 0 ? 'sun' : ''} ${i === 6 ? 'sat' : ''}`}
+            >
+              {d} · {DOW_EN[i]}
+            </div>
+          ))}
+        </div>
+        {Array.from({ length: Math.ceil(cells.length / 7) }, (_, rowIdx) => (
+          <div role="row" style={{ display: 'contents' }} key={`row-${String(rowIdx)}`}>
+            {cells.slice(rowIdx * 7, rowIdx * 7 + 7).map((c, i) => {
+              const ev: ScheduleEvent | undefined = EVENTS[c.key];
+              const isToday = c.key === todayKey;
+              const isSel = c.key === selectedDate;
+              return (
+                <button
+                  type="button"
+                  role="gridcell"
+                  key={`${c.key}-${String(rowIdx * 7 + i)}`}
+                  className={`cal-cell ${c.other ? 'other' : ''} ${isToday ? 'today' : ''} ${isSel ? 'selected' : ''}`}
+                  onClick={() => {
+                    if (!c.other) onSelect(c.key);
+                  }}
+                  disabled={c.other}
+                  aria-current={isSel ? 'date' : undefined}
+                  aria-label={`${c.key}${ev ? `: ${ev.title}` : ''}`}
+                >
+                  <span className="cal-day">{c.day}</span>
+                  {ev && (
+                    <span className="cal-events">
+                      <span className={`cal-ev ${ev.type}`}>
+                        {ev.time} · {ev.title}
+                      </span>
+                    </span>
+                  )}
+                  {ev?.type === 'show' && (
+                    <span className="cal-weather" title="晴れ" aria-hidden="true">
+                      ☾
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         ))}
-        {cells.map((c, i) => {
-          const ev: ScheduleEvent | undefined = EVENTS[c.key];
-          const isToday = c.key === todayKey;
-          const isSel = c.key === selectedDate;
-          return (
-            <button
-              type="button"
-              role="gridcell"
-              key={`${c.key}-${String(i)}`}
-              className={`cal-cell ${c.other ? 'other' : ''} ${isToday ? 'today' : ''} ${isSel ? 'selected' : ''}`}
-              onClick={() => {
-                if (!c.other) onSelect(c.key);
-              }}
-              disabled={c.other}
-              aria-current={isSel ? 'date' : undefined}
-              aria-label={`${c.key}${ev ? `: ${ev.title}` : ''}`}
-            >
-              <span className="cal-day">{c.day}</span>
-              {ev && (
-                <span className="cal-events">
-                  <span className={`cal-ev ${ev.type}`}>
-                    {ev.time} · {ev.title}
-                  </span>
-                </span>
-              )}
-              {ev?.type === 'show' && (
-                <span className="cal-weather" title="晴れ" aria-hidden="true">
-                  ☾
-                </span>
-              )}
-            </button>
-          );
-        })}
       </div>
     </section>
   );

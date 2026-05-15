@@ -53,6 +53,17 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
   useEffect(() => {
     if (!canvasRoot) return;
 
+    // Skip the whole scene if WebGL isn't available (headless test runners,
+    // very old browsers). The page still renders chrome + UI overlays.
+    const probe = document.createElement('canvas');
+    const gl =
+      probe.getContext('webgl2') ??
+      probe.getContext('webgl') ??
+      probe.getContext('experimental-webgl');
+    if (!gl) {
+      return;
+    }
+
     // ---- Scene ----
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x02030a, 0.0012);
@@ -66,11 +77,17 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
     camera.position.set(160, 85, 200);
     camera.lookAt(0, 60, 0);
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-      preserveDrawingBuffer: true,
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        preserveDrawingBuffer: true,
+      });
+    } catch (err) {
+      console.warn('useDroneShow: WebGL renderer init failed; chrome-only mode', err);
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x000000, 0);
