@@ -17,6 +17,7 @@ app-chrome.css
 src/styles/tokens.css
 src/styles/chrome.css
 src/routes/show/show.css
+src/routes/choreography/choreography.css
 README.md
 HANDOFF-README.md
 vercel.json
