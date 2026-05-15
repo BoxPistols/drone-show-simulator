@@ -6,3 +6,15 @@ node_modules/
 .env.local
 .env.*.local
 .claude/
+
+# build & test artifacts
+dist/
+coverage/
+.tsbuildinfo
+*.tsbuildinfo
+.vite/
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
