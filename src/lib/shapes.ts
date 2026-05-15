@@ -1,0 +1,300 @@
+/**
+ * Pure shape generators — return Float32Array of length n*3 of target positions.
+ * World units: 1 unit ≈ 1 meter. Show sits around y=0..120.
+ *
+ * Every function is pure given an `n` (no Math.random) EXCEPT galaxy / bear
+ * which intentionally use jitter for organic feel — kept here for parity with
+ * the original formations.js so visuals are byte-identical to the legacy build.
+ */
+const GOLDEN_ANGLE = 2.399963229728653;
+
+export function fSphere(n: number): Float32Array {
+  const out = new Float32Array(n * 3);
+  const R = 55;
+  const phi = Math.PI * (Math.sqrt(5) - 1);
+  for (let i = 0; i < n; i++) {
+    const y = 1 - (i / (n - 1)) * 2;
+    const r = Math.sqrt(1 - y * y);
+    const theta = phi * i;
+    out[i * 3] = Math.cos(theta) * r * R;
+    out[i * 3 + 1] = y * R + 60;
+    out[i * 3 + 2] = Math.sin(theta) * r * R;
+  }
+  return out;
+}
+
+export function fHelix(n: number): Float32Array {
+  const out = new Float32Array(n * 3);
+  const turns = 6;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const a = t * turns * Math.PI * 2;
+    const strand = i % 2 === 0 ? 1 : -1;
+    const r = 22;
+    out[i * 3] = Math.cos(a) * r * strand;
+    out[i * 3 + 1] = 10 + t * 120;
+    out[i * 3 + 2] = Math.sin(a) * r * strand;
+  }
+  return out;
+}
+
+export function fTorus(n: number): Float32Array {
+  const out = new Float32Array(n * 3);
+  const R = 55;
+  const r = 16;
+  const u_count = 44;
+  const v_count = Math.ceil(n / u_count);
+  for (let i = 0; i < n; i++) {
+    const iu = i % u_count;
+    const iv = Math.floor(i / u_count);
+    const u = (iu / u_count) * Math.PI * 2;
+    const v = (iv / v_count) * Math.PI * 2;
+    out[i * 3] = (R + r * Math.cos(v)) * Math.cos(u);
+    out[i * 3 + 1] = 60 + r * Math.sin(v);
+    out[i * 3 + 2] = (R + r * Math.cos(v)) * Math.sin(u);
+  }
+  return out;
+}
+
+export function fWave(n: number): Float32Array {
+  const out = new Float32Array(n * 3);
+  const side = Math.ceil(Math.sqrt(n));
+  const spacing = 110 / side;
+  for (let i = 0; i < n; i++) {
+    const ix = i % side;
+    const iz = Math.floor(i / side);
+    const x = (ix - side / 2) * spacing;
+    const z = (iz - side / 2) * spacing;
+    const d = Math.sqrt(x * x + z * z);
+    const y = 55 + Math.sin(d * 0.22) * 18 + Math.cos(d * 0.1) * 6;
+    out[i * 3] = x;
+    out[i * 3 + 1] = y;
+    out[i * 3 + 2] = z;
+  }
+  return out;
+}
+
+export function fDoubleHelix(n: number): Float32Array {
+  const out = new Float32Array(n * 3);
+  const turns = 5;
+  const R = 24;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const strand = i % 2;
+    const a = t * turns * Math.PI * 2 + strand * Math.PI;
+    out[i * 3] = Math.cos(a) * R;
+    out[i * 3 + 1] = 15 + t * 115;
+    out[i * 3 + 2] = Math.sin(a) * R;
+    if (i % 22 === 0 && strand === 0) {
+      const rung = i + 1 < n ? i + 1 : i;
+      out[rung * 3] = Math.cos(a + Math.PI) * R * 0.5;
+      out[rung * 3 + 1] = out[i * 3 + 1]!;
+      out[rung * 3 + 2] = Math.sin(a + Math.PI) * R * 0.5;
+    }
+  }
+  return out;
+}
+
+export function fCube(n: number): Float32Array {
+  const out = new Float32Array(n * 3);
+  const S = 50;
+  const per = Math.ceil(n / 12);
+  const edges: ReadonlyArray<
+    readonly [readonly [number, number, number], readonly [number, number, number]]
+  > = [
+    [
+      [-1, -1, -1],
+      [1, -1, -1],
+    ],
+    [
+      [1, -1, -1],
+      [1, 1, -1],
+    ],
+    [
+      [1, 1, -1],
+      [-1, 1, -1],
+    ],
+    [
+      [-1, 1, -1],
+      [-1, -1, -1],
+    ],
+    [
+      [-1, -1, 1],
+      [1, -1, 1],
+    ],
+    [
+      [1, -1, 1],
+      [1, 1, 1],
+    ],
+    [
+      [1, 1, 1],
+      [-1, 1, 1],
+    ],
+    [
+      [-1, 1, 1],
+      [-1, -1, 1],
+    ],
+    [
+      [-1, -1, -1],
+      [-1, -1, 1],
+    ],
+    [
+      [1, -1, -1],
+      [1, -1, 1],
+    ],
+    [
+      [1, 1, -1],
+      [1, 1, 1],
+    ],
+    [
+      [-1, 1, -1],
+      [-1, 1, 1],
+    ],
+  ];
+  let idx = 0;
+  for (let e = 0; e < 12 && idx < n; e++) {
+    const [a, b] = edges[e]!;
+    for (let k = 0; k < per && idx < n; k++) {
+      const t = k / (per - 1);
+      out[idx * 3] = (a[0] + (b[0] - a[0]) * t) * S;
+      out[idx * 3 + 1] = (a[1] + (b[1] - a[1]) * t) * S + 60;
+      out[idx * 3 + 2] = (a[2] + (b[2] - a[2]) * t) * S;
+      idx++;
+    }
+  }
+  return out;
+}
+
+export function fGalaxy(n: number): Float32Array {
+  const out = new Float32Array(n * 3);
+  const arms = 4;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const arm = i % arms;
+    const angle = t * Math.PI * 4 + (arm / arms) * Math.PI * 2;
+    const r = 10 + t * 60;
+    const jitter = (Math.random() - 0.5) * 6;
+    out[i * 3] = Math.cos(angle) * r + jitter;
+    out[i * 3 + 1] = 60 + (Math.random() - 0.5) * 6;
+    out[i * 3 + 2] = Math.sin(angle) * r + jitter;
+  }
+  return out;
+}
+
+export function fHeart(n: number): Float32Array {
+  const out = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const t = (i / n) * Math.PI * 2;
+    const scale = 2.2;
+    const x = 16 * Math.pow(Math.sin(t), 3);
+    const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+    const layer = (i % 3) - 1;
+    const inset = (Math.floor(i / 100) % 3) * 0.1;
+    const k = scale * (1 - inset);
+    out[i * 3] = x * k;
+    out[i * 3 + 1] = y * k + 65;
+    out[i * 3 + 2] = layer * 6;
+  }
+  return out;
+}
+
+/**
+ * Rilakkuma-style kawaii bear face with muzzle.
+ * - Head: wide ellipse, eyes as voids (negative space)
+ * - Muzzle: horizontal void with nose + mouth as positive drones inside
+ * - Ears: 2 rounded discs offset from head
+ * Uses Fibonacci unit disc packing + rejection sampling for void areas.
+ */
+export function fBear(n: number): Float32Array {
+  const out = new Float32Array(n * 3);
+  const head = { cx: 0, cy: 0, rx: 52, ry: 42 };
+  const voids = [
+    { cx: -24, cy: -8, r: 7 },
+    { cx: 24, cy: -8, r: 7 },
+  ];
+  const muzzle = { cx: 0, cy: -25, rx: 18, ry: 8 };
+  const ears = [
+    { cx: -38, cy: 28, r: 17 },
+    { cx: 38, cy: 28, r: 17 },
+  ];
+  const nose = [
+    { x: -3, y: -19 },
+    { x: 3, y: -19 },
+    { x: 0, y: -22 },
+  ];
+  const mouth = [
+    { x: -4, y: -28 },
+    { x: -1.5, y: -30 },
+    { x: 1.5, y: -30 },
+    { x: 4, y: -28 },
+  ];
+  const features = [...nose, ...mouth];
+
+  const headArea = Math.PI * head.rx * head.ry;
+  const eyeVoidArea = voids.reduce((s, v) => s + Math.PI * v.r * v.r, 0);
+  const muzzleArea = Math.PI * muzzle.rx * muzzle.ry;
+  const totalVoid = eyeVoidArea + muzzleArea;
+  const earArea = Math.PI * ears[0]!.r * ears[0]!.r;
+  const fillableHead = Math.max(0, headArea - totalVoid);
+  const totalFill = fillableHead + 2 * earArea;
+  const remaining = n - features.length;
+  const nHead = Math.round((remaining * fillableHead) / totalFill);
+  const nEar1 = Math.round((remaining * earArea) / totalFill);
+  const nEar2 = remaining - nHead - nEar1;
+  let idx = 0;
+
+  const HEAD_SAMPLES = Math.ceil(nHead * 1.25);
+  let placed = 0;
+  for (let k = 0; k < HEAD_SAMPLES && placed < nHead; k++) {
+    const t = (k + 0.5) / HEAD_SAMPLES;
+    const theta = k * GOLDEN_ANGLE;
+    const r = Math.sqrt(t);
+    const px = r * Math.cos(theta) * head.rx;
+    const py = r * Math.sin(theta) * head.ry;
+    let inVoid = false;
+    for (const v of voids) {
+      if (Math.hypot(px - v.cx, py - v.cy) < v.r) {
+        inVoid = true;
+        break;
+      }
+    }
+    if (!inVoid) {
+      const mx = (px - muzzle.cx) / muzzle.rx;
+      const my = (py - muzzle.cy) / muzzle.ry;
+      if (mx * mx + my * my < 1) inVoid = true;
+    }
+    if (inVoid) continue;
+    out[idx * 3] = head.cx + px;
+    out[idx * 3 + 1] = 60 + head.cy + py;
+    out[idx * 3 + 2] = (Math.random() - 0.5) * 3;
+    idx++;
+    placed++;
+  }
+  for (let e = 0; e < 2; e++) {
+    const ear = ears[e]!;
+    const count = e === 0 ? nEar1 : nEar2;
+    for (let k = 0; k < count && idx < n; k++) {
+      const t = (k + 0.5) / count;
+      const theta = k * GOLDEN_ANGLE;
+      const rr = Math.sqrt(t) * ear.r;
+      out[idx * 3] = ear.cx + rr * Math.cos(theta);
+      out[idx * 3 + 1] = 60 + ear.cy + rr * Math.sin(theta);
+      out[idx * 3 + 2] = (Math.random() - 0.5) * 3;
+      idx++;
+    }
+  }
+  for (const p of features) {
+    if (idx >= n) break;
+    out[idx * 3] = p.x;
+    out[idx * 3 + 1] = 60 + p.y;
+    out[idx * 3 + 2] = (Math.random() - 0.5) * 2;
+    idx++;
+  }
+  while (idx < n) {
+    out[idx * 3] = 0;
+    out[idx * 3 + 1] = 60;
+    out[idx * 3 + 2] = 0;
+    idx++;
+  }
+  return out;
+}

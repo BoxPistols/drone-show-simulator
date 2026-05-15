@@ -1,0 +1,19 @@
+dist
+node_modules
+.vercel
+coverage
+pnpm-lock.yaml
+*.html
+formations.js
+show.js
+show-schema.js
+*.jsx
+test/
+tools/
+
+# legacy assets — P9 will migrate or remove these
+tokens.css
+app-chrome.css
+README.md
+HANDOFF-README.md
+vercel.json
