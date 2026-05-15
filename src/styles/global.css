@@ -1,0 +1,56 @@
+/**
+ * Global resets and SPA-wide rules layered on top of tokens.css + chrome.css.
+ * Imported once from src/main.tsx.
+ */
+@import './tokens.css';
+@import './chrome.css';
+@import './reset.css';
+
+html,
+body,
+#root {
+  height: 100%;
+  background: var(--ink-solid, #02030a);
+  color: var(--text-0, #f4f6fb);
+}
+
+/* Skip link for keyboard / screen-reader users */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 8px;
+  z-index: 1000;
+  padding: 8px 14px;
+  background: var(--moon, #31a9c7);
+  color: #02030a;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 8px;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Universal focus ring (override per-component when needed) */
+:focus-visible {
+  outline: 2px solid var(--moon, #31a9c7);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Reduced-motion preference: damp transitions globally */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

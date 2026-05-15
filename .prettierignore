@@ -14,6 +14,8 @@ tools/
 # legacy assets — P9 will migrate or remove these
 tokens.css
 app-chrome.css
+src/styles/tokens.css
+src/styles/chrome.css
 README.md
 HANDOFF-README.md
 vercel.json
