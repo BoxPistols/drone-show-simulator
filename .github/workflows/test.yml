@@ -12,10 +12,27 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+          run_install: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-      - name: Run tests
-        run: npm test
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Format check
+        run: pnpm format:check
+      - name: Vitest
+        run: pnpm test
+      - name: Legacy node:test (smoke + parity)
+        run: pnpm test:legacy
       - name: Verify replay script syntax
         run: node --check tools/flightpath-replay.mjs
+      - name: Build
+        run: pnpm build
