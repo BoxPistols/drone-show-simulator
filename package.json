@@ -72,7 +72,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --max-warnings=0 --fix",
+      "eslint --max-warnings=0 --fix --no-warn-ignored",
       "prettier --write"
     ],
     "*.{js,jsx,mjs,cjs,json,md,css,html,yml,yaml}": [
