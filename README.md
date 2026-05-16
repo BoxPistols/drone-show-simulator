@@ -5,7 +5,8 @@
 東京湾の夜空に 660 機のドローンで 9 演目を描く、Three.js ベースの観賞ビューアと
 振付エディタ。Vite + React + TypeScript の SPA。
 
-**本番**: https://drone-show-simulator.vercel.app
+**本番**: https://drone-show-astra-flock.vercel.app  
+(`drone-show-simulator.vercel.app` は alias、307 redirect)
 
 ![OG](og-image.png)
 

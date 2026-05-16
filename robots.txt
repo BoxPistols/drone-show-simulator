@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://drone-show-simulator.vercel.app/sitemap.xml
+Sitemap: https://drone-show-astra-flock.vercel.app/sitemap.xml
