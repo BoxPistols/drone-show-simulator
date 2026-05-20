@@ -74,7 +74,11 @@
       "eslint --max-warnings=0 --fix --no-warn-ignored",
       "prettier --write"
     ],
-    "*.{js,jsx,mjs,cjs,json,md,css,html,yml,yaml}": [
+    "*.css": [
+      "node tools/check-css-braces.mjs",
+      "prettier --write"
+    ],
+    "*.{js,jsx,mjs,cjs,json,md,html,yml,yaml}": [
       "prettier --write"
     ]
   }
