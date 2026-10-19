@@ -1,4 +1,5 @@
 import { FLEET } from '~/lib/formations';
+import { prng } from '~/lib/prng';
 
 export const FLEET_MODELS = ['DS-A1', 'DS-A1', 'DS-A1', 'DS-A2', 'DS-A2 Pro'] as const;
 export const FLEET_FIRMWARE = ['v4.2.1', 'v4.2.1', 'v4.2.1', 'v4.2.0', 'v4.1.8'] as const;
@@ -27,15 +28,6 @@ export interface FleetStats {
   standby: number;
   maint: number;
   lowBat: number;
-}
-
-/** LCG-based deterministic PRNG so generateFleet is stable across renders. */
-function prng(seed: number): () => number {
-  let s = seed >>> 0;
-  return () => {
-    s = (s * 1664525 + 1013904223) >>> 0;
-    return s / 0xffffffff;
-  };
 }
 
 const STATUS_DIST: readonly { status: DroneStatus; count: number }[] = [

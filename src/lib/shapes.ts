@@ -2,11 +2,16 @@
  * Pure shape generators — return Float32Array of length n*3 of target positions.
  * World units: 1 unit ≈ 1 meter. Show sits around y=0..120.
  *
- * Every function is pure given an `n` (no Math.random) EXCEPT galaxy / bear
- * which intentionally use jitter for organic feel — kept here for parity with
- * the original formations.js so visuals are byte-identical to the legacy build.
+ * Every function is pure given an `n`. galaxy / bear use jitter for organic feel,
+ * drawn from a seeded PRNG so the same `n` always gives the same positions.
+ *
+ * 機体どうしは MIN_SEPARATION_M 以上離す（formations.test.tsで確かめる）。
  */
+import { prng } from './prng';
+
 const GOLDEN_ANGLE = 2.399963229728653;
+// 機体間の最小距離（m）。小型の演出用機体で一般に取られる間隔の下限の目安
+export const MIN_SEPARATION_M = 1.5;
 
 export function fSphere(n: number): Float32Array {
   const out = new Float32Array(n * 3);
@@ -154,8 +159,9 @@ export function fCube(n: number): Float32Array {
   let idx = 0;
   for (let e = 0; e < 12 && idx < n; e++) {
     const [a, b] = edges[e]!;
+    // 辺の両端（角）は3本の辺が共有するので置かず、辺の内側に等間隔に置く
     for (let k = 0; k < per && idx < n; k++) {
-      const t = k / (per - 1);
+      const t = (k + 1) / (per + 1);
       out[idx * 3] = (a[0] + (b[0] - a[0]) * t) * S;
       out[idx * 3 + 1] = (a[1] + (b[1] - a[1]) * t) * S + 60;
       out[idx * 3 + 2] = (a[2] + (b[2] - a[2]) * t) * S;
@@ -168,31 +174,68 @@ export function fCube(n: number): Float32Array {
 export function fGalaxy(n: number): Float32Array {
   const out = new Float32Array(n * 3);
   const arms = 4;
+  const rand = prng(0x6a1a);
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1);
     const arm = i % arms;
     const angle = t * Math.PI * 4 + (arm / arms) * Math.PI * 2;
     const r = 10 + t * 60;
-    const jitter = (Math.random() - 0.5) * 6;
-    out[i * 3] = Math.cos(angle) * r + jitter;
-    out[i * 3 + 1] = 60 + (Math.random() - 0.5) * 6;
-    out[i * 3 + 2] = Math.sin(angle) * r + jitter;
+    // ずらした結果が既に置いた機体に近すぎれば、ずらし方を引き直す
+    for (let tries = 0; tries < 20; tries++) {
+      const jitter = (rand() - 0.5) * 6;
+      out[i * 3] = Math.cos(angle) * r + jitter;
+      out[i * 3 + 1] = 60 + (rand() - 0.5) * 6;
+      out[i * 3 + 2] = Math.sin(angle) * r + jitter;
+      if (!tooClose(out, i)) break;
+    }
   }
   return out;
 }
 
+// i番目の機体が、0..i-1番目のどれかと MIN_SEPARATION_M 未満か
+function tooClose(p: Float32Array, i: number): boolean {
+  for (let j = 0; j < i; j++) {
+    const d = Math.hypot(
+      p[i * 3]! - p[j * 3]!,
+      p[i * 3 + 1]! - p[j * 3 + 1]!,
+      p[i * 3 + 2]! - p[j * 3 + 2]!
+    );
+    if (d < MIN_SEPARATION_M) return true;
+  }
+  return false;
+}
+
+const heartAt = (t: number): [number, number] => [
+  16 * Math.pow(Math.sin(t), 3),
+  13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t),
+];
+
 export function fHeart(n: number): Float32Array {
   const out = new Float32Array(n * 3);
+  // 1層に n/3 機、内側の縮小（最小0.8倍）をかけても機体間が MIN_SEPARATION_M 以上になる大きさ（幅約144m）
+  const scale = 4.5;
+  // 媒介変数を等間隔に取ると、上のくぼみと下の先端で点が詰まって重なる。曲線の長さで等間隔になるtを先に求める。
+  // くぼみ（t=0）と先端（t=π）は左右の曲線が接したまま合わさるので、左右の間が MIN_SEPARATION_M 開くまでの区間は長さに数えず、置かない
+  const STEPS = 4096;
+  const len = new Float64Array(STEPS + 1);
+  let prev = heartAt(0);
+  for (let s = 1; s <= STEPS; s++) {
+    const cur = heartAt((s / STEPS) * Math.PI * 2);
+    const open = 2 * Math.abs(cur[0]) * scale * 0.8 >= MIN_SEPARATION_M * 1.2; // 境目で左右が斜めに近づく分の余裕
+    len[s] = len[s - 1]! + (open ? Math.hypot(cur[0] - prev[0], cur[1] - prev[1]) : 0);
+    prev = cur;
+  }
+  let s = 0;
   for (let i = 0; i < n; i++) {
-    const t = (i / n) * Math.PI * 2;
-    const scale = 2.2;
-    const x = 16 * Math.pow(Math.sin(t), 3);
-    const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+    const want = ((i + 0.5) / n) * len[STEPS]!;
+    while (s < STEPS && len[s + 1]! < want) s++;
+    const f = (want - len[s]!) / (len[s + 1]! - len[s]! || 1);
+    const [x, y] = heartAt(((s + f) / STEPS) * Math.PI * 2);
     const layer = (i % 3) - 1;
     const inset = (Math.floor(i / 100) % 3) * 0.1;
     const k = scale * (1 - inset);
     out[i * 3] = x * k;
-    out[i * 3 + 1] = y * k + 65;
+    out[i * 3 + 1] = y * k + 78;
     out[i * 3 + 2] = layer * 6;
   }
   return out;
@@ -243,6 +286,9 @@ export function fBear(n: number): Float32Array {
   const nEar2 = remaining - nHead - nEar1;
   let idx = 0;
 
+  const rand = prng(0xbea2);
+  const inHead = (px: number, py: number) =>
+    ((px - head.cx) / head.rx) ** 2 + ((py - head.cy) / head.ry) ** 2 < 1;
   const HEAD_SAMPLES = Math.ceil(nHead * 1.25);
   let placed = 0;
   for (let k = 0; k < HEAD_SAMPLES && placed < nHead; k++) {
@@ -266,28 +312,41 @@ export function fBear(n: number): Float32Array {
     if (inVoid) continue;
     out[idx * 3] = head.cx + px;
     out[idx * 3 + 1] = 60 + head.cy + py;
-    out[idx * 3 + 2] = (Math.random() - 0.5) * 3;
+    out[idx * 3 + 2] = (rand() - 0.5) * 3;
     idx++;
     placed++;
   }
   for (let e = 0; e < 2; e++) {
     const ear = ears[e]!;
     const count = e === 0 ? nEar1 : nEar2;
-    for (let k = 0; k < count && idx < n; k++) {
-      const t = (k + 0.5) / count;
-      const theta = k * GOLDEN_ANGLE;
-      const rr = Math.sqrt(t) * ear.r;
-      out[idx * 3] = ear.cx + rr * Math.cos(theta);
-      out[idx * 3 + 1] = 60 + ear.cy + rr * Math.sin(theta);
-      out[idx * 3 + 2] = (Math.random() - 0.5) * 3;
-      idx++;
+    // 耳の円は頭の楕円と重なる。重なった所に置くと頭の機体とぶつかるので、頭の外に出る部分だけに置く。
+    // 頭の外に count 機が収まるまで、円の中の点の数を増やして置き直す
+    for (let samples = count; ; samples++) {
+      const pts: [number, number][] = [];
+      for (let k = 0; k < samples; k++) {
+        const t = (k + 0.5) / samples;
+        const theta = k * GOLDEN_ANGLE;
+        const rr = Math.sqrt(t) * ear.r;
+        const px = ear.cx + rr * Math.cos(theta);
+        const py = ear.cy + rr * Math.sin(theta);
+        if (!inHead(px, py)) pts.push([px, py]);
+      }
+      if (pts.length < count) continue;
+      for (const [px, py] of pts.slice(0, count)) {
+        if (idx >= n) break;
+        out[idx * 3] = px;
+        out[idx * 3 + 1] = 60 + py;
+        out[idx * 3 + 2] = (rand() - 0.5) * 3;
+        idx++;
+      }
+      break;
     }
   }
   for (const p of features) {
     if (idx >= n) break;
     out[idx * 3] = p.x;
     out[idx * 3 + 1] = 60 + p.y;
-    out[idx * 3 + 2] = (Math.random() - 0.5) * 2;
+    out[idx * 3 + 2] = (rand() - 0.5) * 2;
     idx++;
   }
   while (idx < n) {
