@@ -9,7 +9,7 @@ import {
   findFormation,
   isFormationId,
 } from './formations';
-import { MIN_SEPARATION_M } from './shapes';
+import { MIN_SEPARATION_M, fBear } from './shapes';
 
 describe('FORMATIONS', () => {
   it('exposes the canonical 660-drone count', () => {
@@ -100,6 +100,11 @@ describe('機体の間隔', () => {
       expect(minSeparation(f.targets)).toBeGreaterThanOrEqual(MIN_SEPARATION_M);
     }
   );
+
+  // 熊は頭の点が足りないと残りを原点に重ねていた（#51）。機数を変えても離れている
+  it.each([60, 330, 1000, 1500])('熊は %i 機でも全機が MIN_SEPARATION_M 以上離れている', (n) => {
+    expect(minSeparation(fBear(n))).toBeGreaterThanOrEqual(MIN_SEPARATION_M);
+  });
 });
 
 describe('PALETTES', () => {
