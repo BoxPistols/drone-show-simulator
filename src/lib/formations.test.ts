@@ -9,6 +9,7 @@ import {
   findFormation,
   isFormationId,
 } from './formations';
+import { MIN_SEPARATION_M } from './shapes';
 
 describe('FORMATIONS', () => {
   it('exposes the canonical 660-drone count', () => {
@@ -81,6 +82,24 @@ describe('FLEET snapshot', () => {
     expect(FLEET.nonFlyable).toBe(FLEET.maint);
     expect(FLEET.reservable).toBe(FLEET.charging + FLEET.standby);
   });
+});
+
+// 2機の間の最小距離（m）。重なる機体があると実機では飛ばせない
+function minSeparation(p: Float32Array): number {
+  let m = Infinity;
+  for (let i = 0; i < p.length; i += 3)
+    for (let j = i + 3; j < p.length; j += 3)
+      m = Math.min(m, Math.hypot(p[i]! - p[j]!, p[i + 1]! - p[j + 1]!, p[i + 2]! - p[j + 2]!));
+  return m;
+}
+
+describe('機体の間隔', () => {
+  it.each(FORMATIONS.map((f) => [f.id, f] as const))(
+    '%s は全機が MIN_SEPARATION_M 以上離れている',
+    (_id, f) => {
+      expect(minSeparation(f.targets)).toBeGreaterThanOrEqual(MIN_SEPARATION_M);
+    }
+  );
 });
 
 describe('PALETTES', () => {

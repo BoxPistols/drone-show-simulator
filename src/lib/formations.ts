@@ -2,9 +2,8 @@
  * Astra Flock — shared formation algorithms + metadata (typed).
  * Single source of truth for FORMATIONS / PALETTES / SKIES / FLEET.
  *
- * Migrated from formations.js. The legacy file still exists during the SPA
- * migration so old HTML pages continue to work; both modules are byte-identical
- * in their generated targets (verified by formations.test.ts).
+ * Migrated from formations.js（旧版のファイルは残っていない）。形状は機体間を
+ * MIN_SEPARATION_M 以上離すよう直したので、旧版とは配置が違う（formations.test.tsで確かめる）。
  */
 import type {
   BaseFormation,
