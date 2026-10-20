@@ -284,37 +284,41 @@ export function fBear(n: number): Float32Array {
   const nHead = Math.round((remaining * fillableHead) / totalFill);
   const nEar1 = Math.round((remaining * earArea) / totalFill);
   const nEar2 = remaining - nHead - nEar1;
-  let idx = 0;
+  let idx: number; // 頭を置き直すたびに0から数える
 
   const rand = prng(0xbea2);
   const inHead = (px: number, py: number) =>
     ((px - head.cx) / head.rx) ** 2 + ((py - head.cy) / head.ry) ** 2 < 1;
-  const HEAD_SAMPLES = Math.ceil(nHead * 1.25);
-  let placed = 0;
-  for (let k = 0; k < HEAD_SAMPLES && placed < nHead; k++) {
-    const t = (k + 0.5) / HEAD_SAMPLES;
-    const theta = k * GOLDEN_ANGLE;
-    const r = Math.sqrt(t);
-    const px = r * Math.cos(theta) * head.rx;
-    const py = r * Math.sin(theta) * head.ry;
-    let inVoid = false;
-    for (const v of voids) {
-      if (Math.hypot(px - v.cx, py - v.cy) < v.r) {
-        inVoid = true;
-        break;
+  // くぼみに当たる点は飛ばすので、頭に nHead 機が収まるまで点の数を増やして置き直す（足りないと残りが原点に重なる、#51）
+  for (let samples = Math.ceil(nHead * 1.25); ; samples++) {
+    idx = 0;
+    let placed = 0;
+    for (let k = 0; k < samples && placed < nHead; k++) {
+      const t = (k + 0.5) / samples;
+      const theta = k * GOLDEN_ANGLE;
+      const r = Math.sqrt(t);
+      const px = r * Math.cos(theta) * head.rx;
+      const py = r * Math.sin(theta) * head.ry;
+      let inVoid = false;
+      for (const v of voids) {
+        if (Math.hypot(px - v.cx, py - v.cy) < v.r) {
+          inVoid = true;
+          break;
+        }
       }
+      if (!inVoid) {
+        const mx = (px - muzzle.cx) / muzzle.rx;
+        const my = (py - muzzle.cy) / muzzle.ry;
+        if (mx * mx + my * my < 1) inVoid = true;
+      }
+      if (inVoid) continue;
+      out[idx * 3] = head.cx + px;
+      out[idx * 3 + 1] = 60 + head.cy + py;
+      out[idx * 3 + 2] = (rand() - 0.5) * 3;
+      idx++;
+      placed++;
     }
-    if (!inVoid) {
-      const mx = (px - muzzle.cx) / muzzle.rx;
-      const my = (py - muzzle.cy) / muzzle.ry;
-      if (mx * mx + my * my < 1) inVoid = true;
-    }
-    if (inVoid) continue;
-    out[idx * 3] = head.cx + px;
-    out[idx * 3 + 1] = 60 + head.cy + py;
-    out[idx * 3 + 2] = (rand() - 0.5) * 3;
-    idx++;
-    placed++;
+    if (placed >= nHead) break;
   }
   for (let e = 0; e < 2; e++) {
     const ear = ears[e]!;
