@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { findFormation } from '~/lib/formations';
 import { makeGlowSprite, parseColor } from '~/lib/glowSprite';
 import { ease } from '~/lib/easing';
@@ -49,9 +49,10 @@ function sprite(color: string): HTMLCanvasElement {
 export function Preview({ formation, clockRef, start, total, playing }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const propsRef = useRef({ formation, start, total, playing });
-  propsRef.current = { formation, start, total, playing };
   const dirtyRef = useRef(true);
-  useEffect(() => {
+  // 確定した props だけを描画ループに見せる（render 中に ref へ書かない）
+  useLayoutEffect(() => {
+    propsRef.current = { formation, start, total, playing };
     dirtyRef.current = true;
   }, [formation, start, total, playing]);
 

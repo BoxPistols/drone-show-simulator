@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { useLatestRef } from '~/hooks/useLatestRef';
 import type { Ambient } from '../audio/ambient';
 
 interface Options {
@@ -22,8 +23,7 @@ type AudioContextCtor = new () => AudioContext;
 export function useAmbientMusic(opts: Options): { start: () => void } {
   const ctxRef = useRef<AudioContext | null>(null);
   const ambientRef = useRef<Ambient | null>(null);
-  const optsRef = useRef(opts);
-  optsRef.current = opts;
+  const optsRef = useLatestRef(opts);
   const loadingRef = useRef(false);
 
   const applyAll = useCallback(() => {
@@ -33,7 +33,7 @@ export function useAmbientMusic(opts: Options): { start: () => void } {
     a.setVolume(o.volume);
     a.setFormation(o.formationIndex);
     a.setPlaying(o.enabled && o.playing && !document.hidden);
-  }, []);
+  }, [optsRef]);
 
   const start = useCallback(() => {
     if (ambientRef.current || loadingRef.current) {
@@ -57,7 +57,7 @@ export function useAmbientMusic(opts: Options): { start: () => void } {
       ambientRef.current = m.createAmbient(ctx, optsRef.current.formationIndex);
       applyAll();
     });
-  }, [applyAll]);
+  }, [applyAll, optsRef]);
 
   // 設定が変わったら反映
   useEffect(() => {
@@ -73,7 +73,7 @@ export function useAmbientMusic(opts: Options): { start: () => void } {
       }, 1500);
       return () => window.clearTimeout(id);
     }
-  }, [opts.enabled, opts.playing, opts.volume, opts.formationIndex, applyAll]);
+  }, [opts.enabled, opts.playing, opts.volume, opts.formationIndex, applyAll, optsRef]);
 
   // ON のまま再読込したとき: 最初の操作で鳴らす
   useEffect(() => {
@@ -98,7 +98,7 @@ export function useAmbientMusic(opts: Options): { start: () => void } {
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
-  }, [applyAll]);
+  }, [applyAll, optsRef]);
 
   // 片付け
   useEffect(

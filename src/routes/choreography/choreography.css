@@ -527,3 +527,15 @@
   margin-top: 8px;
 }
 .music-track svg { width: 100%; height: 100%; display:block; }
+
+/* ==== Responsive (mobile / tablet) ====
+   ページの CSS は route の遅延読込で共通 CSS より後に読まれる。
+   モバイル用の上書きは同じファイルの末尾に置き、上の基本指定より後に来るようにする */
+@media (max-width: 860px) {
+  .ch-head { padding: 14px 14px 12px; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .ch-meta { gap: 14px; flex-wrap: wrap; }
+  .ch-body { flex-direction: column; overflow: auto; }
+  .ch-left, .ch-right { width: 100% !important; max-height: 220px; overflow-y: auto; }
+  .ch-preview { min-height: 260px; }
+  .ch-timeline { height: 160px; }
+}

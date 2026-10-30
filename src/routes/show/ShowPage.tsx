@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FORMATIONS, TOTAL_TIME } from '~/lib/formations';
+import { useLatestRef } from '~/hooks/useLatestRef';
 import { usePersistedState } from '~/hooks/usePersistedState';
 import { useToast } from '~/hooks/useToast';
 import type { PaletteKey, SkyKey } from '~/types/formations';
@@ -54,8 +55,7 @@ export function ShowPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [prefs, dispatch] = useReducer(prefsReducer, initial);
-  const prefsRef = useRef(prefs);
-  prefsRef.current = prefs;
+  const prefsRef = useLatestRef(prefs);
 
   useEffect(() => {
     setPersistedPrefs(prefs);
@@ -65,8 +65,7 @@ export function ShowPage() {
   // （一時的に重かっただけで、次回以降もずっと画質を落としたままにしないため）
   const [autoLite, setAutoLite] = useState(false);
   const effectiveLite = prefs.lite || autoLite;
-  const effectiveLiteRef = useRef(effectiveLite);
-  effectiveLiteRef.current = effectiveLite;
+  const effectiveLiteRef = useLatestRef(effectiveLite);
   const effectivePrefs = useMemo(() => ({ ...prefs, lite: effectiveLite }), [prefs, effectiveLite]);
 
   const initialFormationIndex = useMemo(() => {
@@ -98,8 +97,7 @@ export function ShowPage() {
 
   // ---- 機体目線で乗る機体 ----
   const [povIndex, setPovIndex] = useState(-1);
-  const povIndexRef = useRef(povIndex);
-  povIndexRef.current = povIndex;
+  const povIndexRef = useLatestRef(povIndex);
   useEffect(() => {
     stateRef.current.povIndex = povIndex;
   }, [povIndex]);
@@ -114,17 +112,17 @@ export function ShowPage() {
       if (mode === 'drone' && povIndexRef.current < 0) pickPov(-1);
       dispatch({ type: 'camera', value: mode });
     },
-    [pickPov]
+    [pickPov, povIndexRef]
   );
   const cycleCamera = useCallback(
     () => setCamera(nextCameraMode(prefsRef.current.camera)),
-    [setCamera]
+    [setCamera, prefsRef]
   );
   const nextPov = useCallback(() => {
     const id = pickPov(povIndexRef.current);
     if (prefsRef.current.camera !== 'drone') dispatch({ type: 'camera', value: 'drone' });
     showToast(`${droneId(id)} の目線に切り替えました`);
-  }, [pickPov, showToast]);
+  }, [pickPov, showToast, povIndexRef, prefsRef]);
   // 保存された設定が機体目線なら、起動時に乗る機体を決める
   useEffect(() => {
     if (initial.camera === 'drone') pickPov(-1);
@@ -142,7 +140,7 @@ export function ShowPage() {
     // AudioContext は操作の中で同期的に作る必要があるので、state を待たずにここで始める
     if (!prefsRef.current.music) music.start();
     dispatch({ type: 'toggle', key: 'music' });
-  }, [music]);
+  }, [music, prefsRef]);
   const onVolumeChange = useCallback((value: number) => dispatch({ type: 'volume', value }), []);
 
   const handleRef = useRef<ShowHandle | null>(null);
@@ -257,7 +255,7 @@ export function ShowPage() {
         dispatch({ type: 'set', key: 'lite', value: true });
       }
     },
-    [toggleMusic]
+    [toggleMusic, effectiveLiteRef]
   );
   const onSizeChange = useCallback((value: number) => dispatch({ type: 'droneSize', value }), []);
   const backToOrbit = useCallback(() => setCamera('orbit'), [setCamera]);

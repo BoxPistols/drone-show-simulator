@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
+import { useLatestRef } from '~/hooks/useLatestRef';
 import * as THREE from 'three';
 import { DRONE_COUNT, FORMATIONS, PALETTES, SKIES, TOTAL_TIME } from '~/lib/formations';
 import { makeGlowSprite } from '~/lib/glowSprite';
@@ -70,11 +71,12 @@ const DPR_CAP_LITE = 1;
  * - 残像を切っているときは残像の描画自体をしない
  */
 export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options): void {
-  const optsRef = useRef(options);
-  optsRef.current = options;
+  const optsRef = useLatestRef(options);
 
   useEffect(() => {
     if (!canvasRoot) return;
+    // handleRef は親の useRef なので同じオブジェクトのまま。cleanup でも安全に触れるよう先に取っておく
+    const handleRef = optsRef.current.handleRef;
 
     // WebGL の有無は WebGLRenderer の生成で判定する（下の try/catch）。
     // 以前は別 canvas で探りの context を作っていたが、それは解放されず、
@@ -667,7 +669,7 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
     };
     document.addEventListener('visibilitychange', onVisibility);
 
-    optsRef.current.handleRef.current = {
+    handleRef.current = {
       capture: () => {
         try {
           // preserveDrawingBuffer を切っているので、描いた直後の同じタスク内で読み出す
@@ -681,7 +683,7 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
 
     return () => {
       stopped = true;
-      optsRef.current.handleRef.current = null;
+      handleRef.current = null;
       if (rafId !== null) cancelAnimationFrame(rafId);
       document.removeEventListener('visibilitychange', onVisibility);
       el.removeEventListener('pointerdown', onPointerDown);
@@ -707,5 +709,5 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       renderer.forceContextLoss();
       scene.clear();
     };
-  }, [canvasRoot]);
+  }, [canvasRoot, optsRef]);
 }

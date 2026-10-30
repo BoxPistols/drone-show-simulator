@@ -5,6 +5,7 @@ import { AppShell } from '~/components/layout/AppShell';
 import { FullscreenLayout } from '~/components/layout/FullscreenLayout';
 import { Boot } from '~/components/ui/Boot';
 import { ToastProvider } from '~/components/ui/ToastProvider';
+import { RouteError } from '~/components/ui/RouteError';
 import { NotFoundPage } from '~/routes/NotFoundPage';
 import '~/styles/global.css';
 
@@ -19,12 +20,14 @@ if (webfonts instanceof HTMLLinkElement && webfonts.rel !== 'stylesheet') {
  * /fleet /choreography /schedule を直接開いたときには一切ダウンロードしない。
  * 画面遷移中は現在のページを表示したまま次のチャンクを待つので、Suspense のちらつきも出ない。
  * 初回だけは HydrateFallback（index.html と同じ読み込み表示）を出し、真っ暗な瞬間を作らない。
+ * チャンクの取得に失敗したら、再読み込みの導線がある RouteError を出す。
  */
 const router = createBrowserRouter(
   [
     {
       element: <FullscreenLayout />,
       HydrateFallback: Boot,
+      errorElement: <RouteError />,
       children: [
         {
           path: '/',
@@ -35,6 +38,7 @@ const router = createBrowserRouter(
     {
       element: <AppShell />,
       HydrateFallback: Boot,
+      errorElement: <RouteError />,
       children: [
         {
           path: '/fleet',

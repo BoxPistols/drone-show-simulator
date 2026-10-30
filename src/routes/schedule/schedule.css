@@ -115,3 +115,14 @@
 .wx-v { font-family:"Poppins",sans-serif; font-size:16px; font-variant-numeric:tabular-nums; margin-top:4px; }
 .wx-v.ok { color:var(--ok); }
 .wx-v.warn { color:var(--warn); }
+
+/* ==== Responsive (mobile / tablet) ====
+   ページの CSS は route の遅延読込で共通 CSS より後に読まれる。
+   モバイル用の上書きは同じファイルの末尾に置き、上の基本指定より後に来るようにする */
+@media (max-width: 860px) {
+  .sc-head { padding: 14px 14px 12px; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .sc-body { flex-direction: column; overflow: auto; }
+  .sc-drawer { width: 100% !important; border-left: none; border-top: 1px solid var(--hair); padding: 18px 14px 24px; }
+  .sc-cal { padding: 14px; }
+  .cal-cell { padding: 4px 6px; }
+}
