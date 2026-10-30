@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>Astra Flock — Drone Show / 星群</title>
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <meta
       name="description"
       content="660 機のドローンで描く 9 演目のライブ観賞ビュー。Three.js 点群シミュレーションによる Astra Flock / 星群 — Drone Show。"
@@ -18,15 +18,81 @@
 
     <link rel="canonical" href="https://drone-show-astra-flock.vercel.app/" />
 
+    <!--
+      Web フォントは描画をブロックさせない。ここでは preload で取得だけ始め、
+      main.tsx が rel="stylesheet" に切り替えて適用する（CSP の script-src 'self' を守るため onload 属性は使わない）。
+      ウェイトは実際に使う分だけ（Poppins 300/400/500, Shippori Mincho 500）。明朝の 400 と 500 は小さな文字では見分けがつかず、
+      CJK フォントは 1 ウェイトで数百 KB になるため 500 に統一している。
+    -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Shippori+Mincho:wght@400;500;600&display=swap"
-      rel="stylesheet"
+      id="webfonts"
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500&family=Shippori+Mincho:wght@500&display=swap"
     />
+
+    <!-- JS が届く前に出す最小の画面。React がマウントすると置き換わる -->
+    <style>
+      html {
+        background: #02030a;
+      }
+      body {
+        margin: 0;
+        background: #02030a;
+        color: #f4f6fb;
+      }
+      .boot {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+      }
+      .boot-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #31a9c7;
+        box-shadow: 0 0 18px #31a9c7;
+        animation: boot 1.2s ease-in-out infinite;
+      }
+      @keyframes boot {
+        0%,
+        100% {
+          opacity: 0.25;
+          transform: scale(0.8);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-dot {
+          animation: none;
+        }
+      }
+      .noscript {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        text-align: center;
+        font: 14px/1.7 -apple-system, 'Hiragino Sans', sans-serif;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot" role="status" aria-label="読み込み中"><div class="boot-dot"></div></div>
+    </div>
+    <noscript>
+      <div class="noscript">
+        Astra Flock の表示には JavaScript が必要です。ブラウザの設定で有効にしてください。
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

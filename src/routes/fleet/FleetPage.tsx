@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useToast } from '~/hooks/useToast';
 import { fleetStats, generateFleet, STATUS_META, type Drone } from '~/lib/fleet';
 import { BatCell } from './components/BatCell';
@@ -6,6 +6,39 @@ import { DroneDrawer, type DroneAction } from './components/DroneDrawer';
 import './fleet.css';
 
 type ViewMode = 'grid' | 'table';
+
+/** 格子のセル。660 個あるので、絞り込みや選択で変わったセルだけ描き直す */
+const DroneCell = memo(function DroneCell({
+  d,
+  selected,
+  onSelect,
+}: {
+  d: Drone;
+  selected: boolean;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <li
+      id={d.id}
+      role="option"
+      aria-selected={selected}
+      className={`dg-cell ${d.status} ${selected ? 'selected' : ''}`}
+      onClick={() => onSelect(d.id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect(d.id);
+        }
+      }}
+      tabIndex={0}
+      title={`${d.id} ・ ${STATUS_META[d.status].jp} ・ ${String(d.bat)}%`}
+    >
+      <span className={`dg-status st-${d.status}`} aria-hidden="true" />
+      <span className="dg-id">{d.id.replace('AS-', '')}</span>
+      <span className="dg-bat">{d.bat}%</span>
+    </li>
+  );
+});
 type Filter = 'all' | 'active' | 'charging' | 'standby' | 'maint' | 'low';
 
 export function FleetPage() {
@@ -227,26 +260,7 @@ export function FleetPage() {
               aria-activedescendant={selId ?? undefined}
             >
               {filtered.map((d) => (
-                <li
-                  key={d.id}
-                  id={d.id}
-                  role="option"
-                  aria-selected={selId === d.id}
-                  className={`dg-cell ${d.status} ${selId === d.id ? 'selected' : ''}`}
-                  onClick={() => setSelId(d.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setSelId(d.id);
-                    }
-                  }}
-                  tabIndex={0}
-                  title={`${d.id} ・ ${STATUS_META[d.status].jp} ・ ${String(d.bat)}%`}
-                >
-                  <span className={`dg-status st-${d.status}`} aria-hidden="true" />
-                  <span className="dg-id">{d.id.replace('AS-', '')}</span>
-                  <span className="dg-bat">{d.bat}%</span>
-                </li>
+                <DroneCell key={d.id} d={d} selected={selId === d.id} onSelect={setSelId} />
               ))}
             </ul>
           ) : (

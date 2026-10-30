@@ -27,9 +27,7 @@
   position: fixed;
   top: 0; left: 0; right: 0;
   height: 56px;
-  background: rgba(8, 11, 22, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(8, 11, 22, 0.92);
   border-bottom: 1px solid var(--hair);
   display: flex;
   align-items: center;
@@ -199,32 +197,4 @@ body.ops {
   .nav-brand-text .en { display: none; }
   .nav-item .jp { letter-spacing: 0.02em; }
   .nav-live { display: none; }
-}
-
-/* ==== Ops page layouts — mobile stack ==== */
-@media (max-width: 860px) {
-  /* Fleet */
-  .fleet-header { padding: 14px 14px 12px; flex-direction: column; gap: 12px; align-items: flex-start; }
-  .fh-kpis { gap: 16px; flex-wrap: wrap; }
-  .kpi-value { font-size: 20px; }
-  .fleet-toolbar { padding: 10px 14px; gap: 6px; flex-wrap: wrap; }
-  .tb-search { max-width: none; width: 100%; }
-  .fleet-body { flex-direction: column; }
-  .drone-grid { padding: 12px 14px; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
-  .drawer { width: 100% !important; }
-
-  /* Choreography */
-  .ch-head { padding: 14px 14px 12px; flex-direction: column; align-items: flex-start; gap: 10px; }
-  .ch-meta { gap: 14px; flex-wrap: wrap; }
-  .ch-body { flex-direction: column; overflow: auto; }
-  .ch-left, .ch-right { width: 100% !important; max-height: 220px; overflow-y: auto; }
-  .ch-preview { min-height: 260px; }
-  .ch-timeline { height: 160px; }
-
-  /* Schedule */
-  .sc-head { padding: 14px 14px 12px; flex-direction: column; align-items: flex-start; gap: 10px; }
-  .sc-body { flex-direction: column; overflow: auto; }
-  .sc-drawer { width: 100% !important; border-left: none; border-top: 1px solid var(--hair); padding: 18px 14px 24px; }
-  .sc-cal { padding: 14px; }
-  .cal-cell { padding: 4px 6px; }
 }

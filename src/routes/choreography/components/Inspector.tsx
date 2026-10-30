@@ -1,14 +1,20 @@
+import { memo, useEffect, useState } from 'react';
 import { FLEET, PALETTES } from '~/lib/formations';
 import type { EditableFormation, EasingName } from '~/types/formations';
 import { PALETTE_KEYS } from '~/types/formations';
 import { ease } from '~/lib/easing';
 import { EasingCurves } from './EasingCurves';
+import type { ClockRef } from '../clock';
 
 interface Props {
   formation: EditableFormation;
   index: number;
-  time: number;
-  totalTime: number;
+  clockRef: ClockRef;
+  /** この演目の開始時刻（秒） */
+  start: number;
+  playing: boolean;
+  /** 一時停止中の再生位置。再生中は 0 のまま（止まっているときのシークだけで変わる） */
+  pausedTime: number;
   onPatch: (patch: Partial<EditableFormation>) => void;
 }
 
@@ -19,7 +25,49 @@ function fmtEaseLive(time: number, total: number, easingName: EasingName): strin
   return `t=${t.toFixed(2)} → ${v.toFixed(2)}`;
 }
 
-export function Inspector({ formation, index, time, totalTime, onPatch }: Props) {
+/**
+ * 補間曲線の現在値。これだけが時間で変わるので、インスペクター全体を描き直さず自分だけ更新する。
+ * 再生中は 10 回/秒で時計を読み、一時停止中はタイマーを止めてシークのときだけ計算し直す
+ */
+function EaseReadout({
+  clockRef,
+  start,
+  total,
+  easing,
+  playing,
+  pausedTime,
+}: {
+  clockRef: ClockRef;
+  start: number;
+  total: number;
+  easing: EasingName;
+  playing: boolean;
+  pausedTime: number;
+}) {
+  const [text, setText] = useState('');
+  useEffect(() => {
+    if (!playing) {
+      setText(fmtEaseLive(Math.max(0, pausedTime - start), total, easing));
+      return;
+    }
+    const tick = () =>
+      setText(fmtEaseLive(Math.max(0, clockRef.current.time - start), total, easing));
+    tick();
+    const id = window.setInterval(tick, 100);
+    return () => window.clearInterval(id);
+  }, [clockRef, start, total, easing, playing, pausedTime]);
+  return <b style={{ color: 'var(--moon)' }}>{text}</b>;
+}
+
+export const Inspector = memo(function Inspector({
+  formation,
+  index,
+  clockRef,
+  start,
+  playing,
+  pausedTime,
+  onPatch,
+}: Props) {
   const fleetTotal = FLEET.total;
   const fleetAvailable = FLEET.available;
   const fleetMaint = FLEET.maint;
@@ -113,7 +161,14 @@ export function Inspector({ formation, index, time, totalTime, onPatch }: Props)
           <span>Easing</span>
           <span className="jp">
             補間曲線 ・{' '}
-            <b style={{ color: 'var(--moon)' }}>{fmtEaseLive(time, totalTime, formation.easing)}</b>
+            <EaseReadout
+              clockRef={clockRef}
+              start={start}
+              total={formation.dur}
+              easing={formation.easing}
+              playing={playing}
+              pausedTime={pausedTime}
+            />
           </span>
         </header>
         <EasingCurves selected={formation.easing} onChange={(easing) => onPatch({ easing })} />
@@ -221,4 +276,4 @@ export function Inspector({ formation, index, time, totalTime, onPatch }: Props)
       </section>
     </aside>
   );
-}
+});

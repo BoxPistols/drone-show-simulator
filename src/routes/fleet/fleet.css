@@ -73,8 +73,8 @@
     border-radius: 6px;
     font-size: 12px;
     cursor: pointer;
-    font-family: var(--mincho);
-    letter-spacing: 0.06em;
+    font-family: var(--font-sans);
+    letter-spacing: 0.04em;
     transition: all 0.15s;
   }
   .tb-seg button.on { background: var(--moon); color: #02030a; }
@@ -343,7 +343,7 @@
     border-radius: 8px;
     font-size: 11.5px;
     cursor: pointer;
-    font-family: var(--mincho);
+    font-family: var(--font-sans);
     letter-spacing: 0.06em;
     transition: all 0.15s;
   }
@@ -385,3 +385,17 @@
     box-shadow: 0 0 8px var(--pink);
     z-index: 2;
   }
+
+/* ==== Responsive (mobile / tablet) ====
+   ページの CSS は route の遅延読込で共通 CSS より後に読まれる。
+   モバイル用の上書きは同じファイルの末尾に置き、上の基本指定より後に来るようにする */
+@media (max-width: 860px) {
+  .fleet-header { padding: 14px 14px 12px; flex-direction: column; gap: 12px; align-items: flex-start; }
+  .fh-kpis { gap: 16px; flex-wrap: wrap; }
+  .kpi-value { font-size: 20px; }
+  .fleet-toolbar { padding: 10px 14px; gap: 6px; flex-wrap: wrap; }
+  .tb-search { max-width: none; width: 100%; }
+  .fleet-body { flex-direction: column; }
+  .drone-grid { padding: 12px 14px; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
+  .drawer { width: 100% !important; }
+}

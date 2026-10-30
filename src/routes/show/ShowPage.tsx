@@ -1,68 +1,41 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FORMATIONS, TOTAL_TIME } from '~/lib/formations';
+import { useLatestRef } from '~/hooks/useLatestRef';
 import { usePersistedState } from '~/hooks/usePersistedState';
+import { useToast } from '~/hooks/useToast';
 import type { PaletteKey, SkyKey } from '~/types/formations';
-import { PALETTE_KEYS, SKY_KEYS } from '~/types/formations';
 import { ChromeTop } from './components/ChromeTop';
 import { KeyboardHints } from './components/KeyboardHints';
 import { NowPlayingCard } from './components/NowPlayingCard';
 import { ProgrammeBar } from './components/ProgrammeBar';
 import { TransportBar } from './components/TransportBar';
 import { TweaksPanel } from './components/TweaksPanel';
-import { useDroneShow } from './hooks/useDroneShow';
+import { useAmbientMusic } from './hooks/useAmbientMusic';
+import { type ShowHandle, useDroneShow } from './hooks/useDroneShow';
+import { CAMERA_META, nextCameraMode, pickPovDrone } from './pov';
+import { isPrefs, prefsReducer, withDefaults } from './prefs';
 import {
+  type CameraMode,
   DEFAULT_PREFS,
+  type HudInfo,
   type ShowPrefs,
   type ShowState,
   SPEED_STEPS,
   type SpeedStep,
+  type ToggleKey,
 } from './types';
-import { fmtTime, isSpeedStep, nearestSpeed } from './utils';
+import { fmtTime, nearestSpeed } from './utils';
 import './show.css';
 
-type PrefAction =
-  | { type: 'palette'; value: PaletteKey }
-  | { type: 'sky'; value: SkyKey }
-  | { type: 'toggle'; key: 'trails' | 'rotate' | 'glow' }
-  | { type: 'droneSize'; value: number }
-  | { type: 'speed'; value: SpeedStep };
+const INITIAL_HUD: HudInfo = { time: 0, alt: 0, wind: 0, frame: 0, fps: 0, dpr: 1 };
 
-function prefsReducer(state: ShowPrefs, action: PrefAction): ShowPrefs {
-  switch (action.type) {
-    case 'palette':
-      return { ...state, palette: action.value };
-    case 'sky':
-      return { ...state, sky: action.value };
-    case 'toggle':
-      return { ...state, [action.key]: !state[action.key] };
-    case 'droneSize':
-      return { ...state, droneSize: Math.max(0.5, Math.min(2.5, action.value)) };
-    case 'speed':
-      return { ...state, speed: action.value };
-  }
-}
-
-function isPrefs(v: unknown): v is ShowPrefs {
-  if (typeof v !== 'object' || v === null) return false;
-  const p = v as Partial<ShowPrefs>;
-  return (
-    typeof p.palette === 'string' &&
-    (PALETTE_KEYS as readonly string[]).includes(p.palette) &&
-    typeof p.sky === 'string' &&
-    (SKY_KEYS as readonly string[]).includes(p.sky) &&
-    typeof p.trails === 'boolean' &&
-    typeof p.rotate === 'boolean' &&
-    typeof p.glow === 'boolean' &&
-    typeof p.droneSize === 'number' &&
-    typeof p.speed === 'number' &&
-    isSpeedStep(p.speed)
-  );
-}
+const droneId = (i: number) => `AS-${String(i + 1).padStart(3, '0')}`;
 
 export function ShowPage() {
   const canvasRootRef = useRef<HTMLDivElement>(null);
   const [searchParams] = useSearchParams();
+  const { show: showToast } = useToast();
 
   // Prefs: localStorage + URL params (URL > localStorage > default)
   const [persistedPrefs, setPersistedPrefs] = usePersistedState<ShowPrefs>(
@@ -75,63 +48,123 @@ export function ShowPage() {
     const sp = parseFloat(searchParams.get('speed') ?? '');
     const speedFromUrl: SpeedStep | null = Number.isFinite(sp) && sp > 0 ? nearestSpeed(sp) : null;
     return {
-      ...persistedPrefs,
+      ...withDefaults(persistedPrefs),
       ...(speedFromUrl !== null ? { speed: speedFromUrl } : {}),
     };
     // intentionally only seed once; subsequent edits flow through dispatch
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [prefs, dispatch] = useReducer(prefsReducer, initial);
+  const prefsRef = useLatestRef(prefs);
 
-  // Persist whenever prefs change
   useEffect(() => {
     setPersistedPrefs(prefs);
   }, [prefs, setPersistedPrefs]);
 
-  // Initial formation index from URL ?f=<n>
+  // 描画が間に合わないときの自動軽量モード。今回の表示だけの状態で、保存はしない
+  // （一時的に重かっただけで、次回以降もずっと画質を落としたままにしないため）
+  const [autoLite, setAutoLite] = useState(false);
+  const effectiveLite = prefs.lite || autoLite;
+  const effectiveLiteRef = useLatestRef(effectiveLite);
+  const effectivePrefs = useMemo(() => ({ ...prefs, lite: effectiveLite }), [prefs, effectiveLite]);
+
   const initialFormationIndex = useMemo(() => {
     const f = parseInt(searchParams.get('f') ?? '', 10);
     return Number.isInteger(f) && f >= 0 && f < FORMATIONS.length ? f : 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- Live, mutable show state read by the Three.js loop every frame ----
+  // ---- Three.js のループが毎フレーム読む生の状態 ----
   const stateRef = useRef<ShowState>({
     ...initial,
     formationIndex: initialFormationIndex,
     showTime: FORMATIONS[initialFormationIndex]!.start + 0.01,
     playing: true,
+    povIndex: -1,
   });
-
-  // Sync prefs into the live ref so the loop sees them
   useEffect(() => {
-    stateRef.current = { ...stateRef.current, ...prefs };
-  }, [prefs]);
+    stateRef.current = { ...stateRef.current, ...effectivePrefs };
+  }, [effectivePrefs]);
 
-  // ---- Reactive UI state mirrored from the loop via callbacks ----
+  // ---- ループから戻ってくる表示用の状態 ----
   const [formationIndex, setFormationIndex] = useState(initialFormationIndex);
   const [playing, setPlaying] = useState(true);
-  const [hud, setHud] = useState({ time: 0, alt: 0, wind: 0, frame: 0 });
-
-  // Keep stateRef.playing in sync when user toggles
+  const [hud, setHud] = useState<HudInfo>(INITIAL_HUD);
+  const [webglUnavailable, setWebglUnavailable] = useState(false);
   useEffect(() => {
     stateRef.current.playing = playing;
   }, [playing]);
 
-  // ---- Mount the Three.js scene ----
-  // Render canvas-root once on mount; pass static callbacks via stateRef
+  // ---- 機体目線で乗る機体 ----
+  const [povIndex, setPovIndex] = useState(-1);
+  const povIndexRef = useLatestRef(povIndex);
+  useEffect(() => {
+    stateRef.current.povIndex = povIndex;
+  }, [povIndex]);
+  const pickPov = useCallback((exclude: number) => {
+    const targets = FORMATIONS[stateRef.current.formationIndex]?.targets ?? FORMATIONS[0]!.targets;
+    const next = pickPovDrone(targets, exclude);
+    setPovIndex(next);
+    return next;
+  }, []);
+  const setCamera = useCallback(
+    (mode: CameraMode) => {
+      if (mode === 'drone' && povIndexRef.current < 0) pickPov(-1);
+      dispatch({ type: 'camera', value: mode });
+    },
+    [pickPov, povIndexRef]
+  );
+  const cycleCamera = useCallback(
+    () => setCamera(nextCameraMode(prefsRef.current.camera)),
+    [setCamera, prefsRef]
+  );
+  const nextPov = useCallback(() => {
+    const id = pickPov(povIndexRef.current);
+    if (prefsRef.current.camera !== 'drone') dispatch({ type: 'camera', value: 'drone' });
+    showToast(`${droneId(id)} の目線に切り替えました`);
+  }, [pickPov, showToast, povIndexRef, prefsRef]);
+  // 保存された設定が機体目線なら、起動時に乗る機体を決める
+  useEffect(() => {
+    if (initial.camera === 'drone') pickPov(-1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---- アンビエント音楽（端末で生成。初めて ON にしたときだけコードを読み込む） ----
+  const music = useAmbientMusic({
+    enabled: prefs.music,
+    volume: prefs.volume,
+    playing,
+    formationIndex,
+  });
+  const toggleMusic = useCallback(() => {
+    // AudioContext は操作の中で同期的に作る必要があるので、state を待たずにここで始める
+    if (!prefsRef.current.music) music.start();
+    dispatch({ type: 'toggle', key: 'music' });
+  }, [music, prefsRef]);
+  const onVolumeChange = useCallback((value: number) => dispatch({ type: 'volume', value }), []);
+
+  const handleRef = useRef<ShowHandle | null>(null);
+  const onAutoLite = useCallback(() => {
+    setAutoLite(true);
+    showToast('描画が重いため、今回の表示だけ軽量モードに切り替えました（設定パネルで戻せます）');
+  }, [showToast]);
+  const onUnavailable = useCallback(() => setWebglUnavailable(true), []);
+
   useDroneShow(canvasRootRef.current, {
     stateRef,
     onFormationChange: setFormationIndex,
     onHudTick: setHud,
+    onAutoLite,
+    onUnavailable,
+    handleRef,
   });
-  // The ref isn't populated on first render, so re-mount the hook after first paint
+  // ref は初回レンダー時点では空なので、マウント後にもう一度だけ描画してフックへ渡す
   const [, forceRerender] = useState(0);
   useEffect(() => {
     if (canvasRootRef.current) forceRerender((n) => n + 1);
   }, []);
 
-  // ---- Reduced motion: disable auto-rotate by default ----
+  // ---- 視覚効果を減らす設定の人には自動回転を切る ----
   useEffect(() => {
     if (
       typeof window !== 'undefined' &&
@@ -145,7 +178,7 @@ export function ShowPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- Controls ----
+  // ---- 操作 ----
   const seekToFormation = useCallback((i: number) => {
     const target = FORMATIONS[i];
     if (!target) return;
@@ -153,17 +186,22 @@ export function ShowPage() {
     stateRef.current.showTime = target.start + 0.01;
     setFormationIndex(i);
   }, []);
+  const onPrev = useCallback(
+    () => seekToFormation(Math.max(0, stateRef.current.formationIndex - 1)),
+    [seekToFormation]
+  );
+  const onNext = useCallback(
+    () => seekToFormation(Math.min(FORMATIONS.length - 1, stateRef.current.formationIndex + 1)),
+    [seekToFormation]
+  );
 
   const togglePlay = useCallback(() => setPlaying((p) => !p), []);
 
-  const cycleSpeed = useCallback(
-    (dir: 1 | -1) => {
-      const idx = SPEED_STEPS.indexOf(prefs.speed);
-      const nextIdx = (idx + dir + SPEED_STEPS.length) % SPEED_STEPS.length;
-      dispatch({ type: 'speed', value: SPEED_STEPS[nextIdx]! });
-    },
-    [prefs.speed]
-  );
+  const cycleSpeed = useCallback((dir: 1 | -1) => {
+    const idx = SPEED_STEPS.indexOf(stateRef.current.speed);
+    const nextIdx = (idx + dir + SPEED_STEPS.length) % SPEED_STEPS.length;
+    dispatch({ type: 'speed', value: SPEED_STEPS[nextIdx]! });
+  }, []);
 
   const onFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -175,25 +213,54 @@ export function ShowPage() {
     }
   }, []);
 
-  const [screenshotTrigger, setScreenshotTrigger] = useState(0);
-  const onScreenshot = useCallback(() => setScreenshotTrigger((n) => n + 1), []);
-  useEffect(() => {
-    if (screenshotTrigger === 0) return;
-    const canvas = canvasRootRef.current?.querySelector('canvas');
-    if (!canvas) return;
-    const url = canvas.toDataURL('image/png');
+  const onScreenshot = useCallback(() => {
+    const url = handleRef.current?.capture();
+    if (!url) {
+      showToast('この環境ではスクリーンショットを保存できません');
+      return;
+    }
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
     const a = document.createElement('a');
     a.href = url;
     a.download = `astra-flock-${stamp}.png`;
     a.click();
-  }, [screenshotTrigger]);
+  }, [showToast]);
 
-  // ---- Tweaks panel + keyboard hints visibility ----
   const [tweaksOpen, setTweaksOpen] = useState(false);
   const [hintsOpen, setHintsOpen] = useState(false);
+  const closeTweaks = useCallback(() => setTweaksOpen(false), []);
+  const toggleTweaks = useCallback(() => setTweaksOpen((v) => !v), []);
+  const closeHints = useCallback(() => setHintsOpen(false), []);
 
-  // ---- Keyboard shortcuts ----
+  const onPaletteChange = useCallback(
+    (value: PaletteKey) => dispatch({ type: 'palette', value }),
+    []
+  );
+  const onSkyChange = useCallback((value: SkyKey) => dispatch({ type: 'sky', value }), []);
+  const onToggle = useCallback(
+    (key: ToggleKey) => {
+      if (key === 'music') {
+        toggleMusic();
+        return;
+      }
+      if (key !== 'lite') {
+        dispatch({ type: 'toggle', key });
+        return;
+      }
+      // 軽量モードの切替は「自動」と「保存される設定」をまとめて扱う
+      if (effectiveLiteRef.current) {
+        setAutoLite(false);
+        dispatch({ type: 'set', key: 'lite', value: false });
+      } else {
+        dispatch({ type: 'set', key: 'lite', value: true });
+      }
+    },
+    [toggleMusic, effectiveLiteRef]
+  );
+  const onSizeChange = useCallback((value: number) => dispatch({ type: 'droneSize', value }), []);
+  const backToOrbit = useCallback(() => setCamera('orbit'), [setCamera]);
+
+  // ---- キーボード ----
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -206,11 +273,11 @@ export function ShowPage() {
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          seekToFormation(Math.max(0, formationIndex - 1));
+          onPrev();
           break;
         case 'ArrowRight':
           e.preventDefault();
-          seekToFormation(Math.min(FORMATIONS.length - 1, formationIndex + 1));
+          onNext();
           break;
         case 'f':
         case 'F':
@@ -219,6 +286,18 @@ export function ShowPage() {
         case 's':
         case 'S':
           onScreenshot();
+          break;
+        case 'c':
+        case 'C':
+          cycleCamera();
+          break;
+        case 'v':
+        case 'V':
+          nextPov();
+          break;
+        case 'm':
+        case 'M':
+          toggleMusic();
           break;
         case '?':
         case '/':
@@ -231,7 +310,7 @@ export function ShowPage() {
           break;
         case 't':
         case 'T':
-          setTweaksOpen((v) => !v);
+          toggleTweaks();
           break;
         case '+':
         case '=':
@@ -249,9 +328,20 @@ export function ShowPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [formationIndex, togglePlay, seekToFormation, cycleSpeed, onFullscreen, onScreenshot]);
+  }, [
+    togglePlay,
+    seekToFormation,
+    cycleSpeed,
+    onFullscreen,
+    onScreenshot,
+    onPrev,
+    onNext,
+    toggleTweaks,
+    cycleCamera,
+    nextPov,
+    toggleMusic,
+  ]);
 
-  // ---- HUD body class for tweaks-open ----
   useEffect(() => {
     document.body.classList.toggle('tweaks-open', tweaksOpen);
     return () => document.body.classList.remove('tweaks-open');
@@ -270,7 +360,7 @@ export function ShowPage() {
 
   return (
     <>
-      <div id="stars-bg" />
+      <div id="stars-bg" aria-hidden="true" />
       <div id="canvas-root" ref={canvasRootRef} />
       <div className="corner-tick tl" aria-hidden="true" />
       <div className="corner-tick tr" aria-hidden="true" />
@@ -280,21 +370,54 @@ export function ShowPage() {
         TOKYO BAY ・ 35.6762°N 139.7690°E
       </div>
 
+      {webglUnavailable && (
+        <div className="webgl-notice" role="status">
+          <strong>3D 表示を利用できません</strong>
+          このブラウザでは WebGL が無効か、対応していません。演目の情報と操作はそのまま使えます。
+        </div>
+      )}
+
       <ChromeTop stats={stats} />
       <NowPlayingCard
         formation={currentFormation}
         index={formationIndex}
         total={FORMATIONS.length}
       />
+      {prefs.camera !== 'orbit' && (
+        <div className="view-pill" role="status" aria-live="polite">
+          <span className="vp-mode">{CAMERA_META[prefs.camera].jp}</span>
+          {prefs.camera === 'drone' && povIndex >= 0 && (
+            <span className="vp-id">{droneId(povIndex)}</span>
+          )}
+          {prefs.camera === 'drone' && (
+            <button type="button" onClick={nextPov} aria-label="別の機体の目線へ (V)">
+              別の機体
+            </button>
+          )}
+          <button
+            type="button"
+            className="vp-close"
+            onClick={backToOrbit}
+            aria-label="観客の視点に戻る"
+            title="観客の視点に戻る"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <TransportBar
         playing={playing}
         speed={prefs.speed}
+        tweaksOpen={tweaksOpen}
+        musicOn={prefs.music}
         onPlayToggle={togglePlay}
-        onPrev={() => seekToFormation(Math.max(0, formationIndex - 1))}
-        onNext={() => seekToFormation(Math.min(FORMATIONS.length - 1, formationIndex + 1))}
+        onPrev={onPrev}
+        onNext={onNext}
         onSpeedCycle={cycleSpeed}
         onFullscreen={onFullscreen}
         onScreenshot={onScreenshot}
+        onTweaks={toggleTweaks}
+        onMusic={toggleMusic}
       />
       <ProgrammeBar
         formations={FORMATIONS}
@@ -305,17 +428,24 @@ export function ShowPage() {
       />
       <TweaksPanel
         open={tweaksOpen}
-        state={{ ...prefs, formationIndex, showTime: hud.time, playing }}
-        onClose={() => setTweaksOpen(false)}
-        onPaletteChange={(value) => dispatch({ type: 'palette', value })}
-        onSkyChange={(value) => dispatch({ type: 'sky', value })}
-        onToggle={(key) => dispatch({ type: 'toggle', key })}
-        onSizeChange={(value) => dispatch({ type: 'droneSize', value })}
+        prefs={effectivePrefs}
+        formationIndex={formationIndex}
+        povIndex={povIndex}
+        onClose={closeTweaks}
+        onPaletteChange={onPaletteChange}
+        onSkyChange={onSkyChange}
+        onToggle={onToggle}
+        onSizeChange={onSizeChange}
         onSeekFormation={seekToFormation}
+        onCameraChange={setCamera}
+        onNextPov={nextPov}
+        onVolumeChange={onVolumeChange}
       />
-      <KeyboardHints open={hintsOpen} onClose={() => setHintsOpen(false)} />
+      <KeyboardHints open={hintsOpen} onClose={closeHints} />
       <div className="frame-count" aria-hidden="true">
-        FRAME {String(hud.frame).padStart(6, '0')} ・ 60 FPS ・ REC ・ {fmtTime(hud.time)}
+        FRAME {String(hud.frame).padStart(6, '0')} ・{' '}
+        {hud.fps > 0 ? `${String(hud.fps)} FPS` : 'PAUSED'} ・ {hud.dpr.toFixed(2)}× ・{' '}
+        {fmtTime(hud.time)}
       </div>
     </>
   );

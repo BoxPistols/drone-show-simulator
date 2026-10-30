@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { useFocusTrap } from '~/hooks/useFocusTrap';
 
 interface Props {
@@ -11,13 +11,16 @@ const HINTS: ReadonlyArray<readonly [string, string]> = [
   ['← / →', '前 / 次の演目'],
   ['1 〜 9', '演目へ直接ジャンプ'],
   ['+ / −', '再生速度を変更'],
+  ['C', '視点を切替（観客 / 機体目線 / 360°）'],
+  ['V', '別の機体の目線へ'],
+  ['M', 'アンビエント音楽 ON / OFF'],
   ['F', '全画面表示'],
   ['T', '設定パネル表示切替'],
   ['S', 'スクリーンショット'],
   ['? / Esc', 'このヘルプを開閉'],
 ];
 
-export function KeyboardHints({ open, onClose }: Props) {
+export const KeyboardHints = memo(function KeyboardHints({ open, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   useFocusTrap(ref, open);
   useEffect(() => {
@@ -52,14 +55,9 @@ export function KeyboardHints({ open, onClose }: Props) {
           </div>
         ))}
       </dl>
-      <button
-        type="button"
-        className="kh-close"
-        onClick={onClose}
-        style={{ background: 'transparent', border: 0, cursor: 'pointer', width: '100%' }}
-      >
+      <button type="button" className="kh-close" onClick={onClose}>
         ? または Esc で閉じる
       </button>
     </div>
   );
-}
+});

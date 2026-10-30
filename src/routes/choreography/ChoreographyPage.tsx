@@ -22,7 +22,11 @@ import {
   type EditableFormation,
 } from './store';
 import type { FormationId } from '~/types/formations';
+import { advanceClock, createClock, seekClock } from './clock';
 import './choreography.css';
+
+/** 文字や playhead を描き直す間隔。プレビューは clockRef を直接読んで毎フレーム描く */
+const UI_TICK_MS = 66;
 
 const PRESETS_KEY = 'astra-flock-presets';
 
@@ -43,7 +47,12 @@ export function ChoreographyPage() {
 
   const [selIdx, setSelIdx] = useState(0);
   const [playing, setPlaying] = useState(true);
-  const [time, setTime] = useState(0);
+  const [time, setTimeState] = useState(0);
+  const clockRef = useRef(createClock());
+  const setTime = useCallback((t: number) => {
+    seekClock(clockRef.current, t);
+    setTimeState(t);
+  }, []);
   const [bpm, setBpm] = useState(120);
   const [addPickerOpen, setAddPickerOpen] = useState(false);
   const [presetPanelOpen, setPresetPanelOpen] = useState(false);
@@ -52,19 +61,29 @@ export function ChoreographyPage() {
   const audio = useAudio();
   const { isDirty, markClean } = useDirty(formations);
 
-  // Animation tick
+  // 再生時計。毎フレーム進めるのは ref だけで、React の state は約 15 回/秒だけ更新する
+  // （以前は毎フレーム setState していて、ページ全体が 60fps で再レンダリングされていた）
   useEffect(() => {
     if (!playing) return;
+    const clock = clockRef.current;
     let raf = 0;
     let last = performance.now();
+    let lastUi = 0;
     const tick = (now: number) => {
-      const dt = (now - last) / 1000;
-      last = now;
-      setTime((t) => (t + dt) % Math.max(1, totalDur));
       raf = requestAnimationFrame(tick);
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      advanceClock(clock, dt, totalDur);
+      if (now - lastUi >= UI_TICK_MS) {
+        lastUi = now;
+        setTimeState(clock.time);
+      }
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      setTimeState(clock.time);
+    };
   }, [playing, totalDur]);
 
   // Auto-follow playhead → selected index
@@ -84,7 +103,7 @@ export function ChoreographyPage() {
       setTime(t);
       if (playing && audio.audio) audio.startAt(t);
     },
-    [audio, playing]
+    [audio, playing, setTime]
   );
 
   // Audio play/stop sync
@@ -376,6 +395,18 @@ export function ChoreographyPage() {
   }, [seekTo, showToast]);
 
   const handleAction = (action: ChoreoAction) => dispatch(action);
+  const onSelectFormation = useCallback(
+    (i: number) => {
+      setSelIdx(i);
+      seekTo(starts[i]! + 0.01);
+    },
+    [starts, seekTo]
+  );
+  const onToggleAddPicker = useCallback(() => setAddPickerOpen((v) => !v), []);
+  const onSetDur = useCallback(
+    (i: number, dur: number) => dispatch({ type: 'setDur', index: i, dur }),
+    []
+  );
   const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
 
   return (
@@ -489,20 +520,23 @@ export function ChoreographyPage() {
           formations={formations}
           selectedIndex={selIdx}
           addPickerOpen={addPickerOpen}
-          onSelect={(i) => {
-            setSelIdx(i);
-            seekTo(starts[i]! + 0.01);
-          }}
+          onSelect={onSelectFormation}
           onMove={onMove}
           onAdd={onAdd}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
-          onToggleAddPicker={() => setAddPickerOpen((v) => !v)}
+          onToggleAddPicker={onToggleAddPicker}
         />
 
         <div className="ch-center">
           <div className="ch-preview">
-            <Preview formation={sel} time={localTime} total={sel.dur} />
+            <Preview
+              formation={sel}
+              clockRef={clockRef}
+              start={starts[selIdx] ?? 0}
+              total={sel.dur}
+              playing={playing}
+            />
             <div className="ch-preview-ui">
               <div className="cp-label">
                 {sel.jp}
@@ -533,7 +567,7 @@ export function ChoreographyPage() {
               bpm={bpm}
               onSelect={setSelIdx}
               onSeek={seekTo}
-              onSetDur={(i, dur) => dispatch({ type: 'setDur', index: i, dur })}
+              onSetDur={onSetDur}
             />
             <div
               style={{
@@ -713,8 +747,10 @@ export function ChoreographyPage() {
         <Inspector
           formation={sel}
           index={selIdx}
-          time={time}
-          totalTime={totalDur}
+          clockRef={clockRef}
+          start={starts[selIdx] ?? 0}
+          playing={playing}
+          pausedTime={playing ? 0 : time}
           onPatch={onPatch}
         />
       </div>
