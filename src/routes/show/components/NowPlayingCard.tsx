@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { ComputedFormation } from '~/types/formations';
 import { fmtTime } from '../utils';
 
@@ -7,7 +8,7 @@ interface Props {
   total: number;
 }
 
-export function NowPlayingCard({ formation, index, total }: Props) {
+export const NowPlayingCard = memo(function NowPlayingCard({ formation, index, total }: Props) {
   return (
     <div className="now-playing">
       <div className="np-eyebrow">Now Showing — 演目</div>
@@ -28,4 +29,4 @@ export function NowPlayingCard({ formation, index, total }: Props) {
       </div>
     </div>
   );
-}
+});

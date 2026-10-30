@@ -2,8 +2,10 @@
     --sky-0: #02030a;
     --sky-1: #070a1a;
     --sky-2: #0e1530;
-    --ink: rgba(10, 14, 28, 0.72);
-    --ink-strong: rgba(8, 11, 22, 0.88);
+    /* 半透明の板はぼかし（backdrop-filter）を使わない。動き続ける WebGL の上では毎フレームぼかし直しになり、
+       非力な GPU で最も重い処理になるため。代わりに不透明度を少し上げて読みやすさを保つ */
+    --ink: rgba(10, 14, 28, 0.82);
+    --ink-strong: rgba(8, 11, 22, 0.94);
     --hair: rgba(255,255,255,0.08);
     --hair-2: rgba(255,255,255,0.16);
     --glow: #31a9c7;
@@ -17,12 +19,13 @@
     color: #e8eef6;
     font-family: var(--font-sans);
   }
-  /* Stars background behind canvas */
-  #stars {
+  /* 空のグラデーション。canvas の後ろに一度だけ描かれる静的な層（空の種類は useDroneShow が inline で差し替える） */
+  #stars-bg {
     position: fixed; inset: 0;
     background:
-      radial-gradient(ellipse at 70% 20%, rgba(49,169,199,0.08), transparent 55%),
-      radial-gradient(ellipse at 20% 80%, rgba(91,33,182,0.12), transparent 60%),
+      radial-gradient(ellipse 80% 40% at 50% 100%, #1e2a4a66, transparent 70%),
+      radial-gradient(ellipse at 70% 20%, #0e153088, transparent 55%),
+      radial-gradient(ellipse at 20% 80%, #070a1aaa, transparent 60%),
       radial-gradient(ellipse at 50% 50%, #070a1a, #02030a 80%);
     z-index: 0;
   }
@@ -31,6 +34,33 @@
     z-index: 1;
   }
   canvas { display: block; }
+  /* ドラッグで回転させるので、タッチのスクロール／ズームに奪わせない */
+  #canvas-root canvas { touch-action: none; user-select: none; -webkit-user-select: none; }
+
+  /* WebGL が使えないときの案内 */
+  .webgl-notice {
+    position: fixed;
+    left: 50%; top: 45%;
+    transform: translate(-50%, -50%);
+    z-index: 8;
+    max-width: min(420px, calc(100vw - 32px));
+    padding: 16px 20px;
+    background: var(--ink-strong);
+    border: 1px solid var(--hair-2);
+    border-radius: 12px;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.75);
+  }
+  .webgl-notice strong {
+    display: block;
+    font-family: "Shippori Mincho", "Yu Mincho", serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+    margin-bottom: 4px;
+    letter-spacing: 0.06em;
+  }
 
   /* ====== UI Overlay ====== */
   .hud {
@@ -95,11 +125,9 @@
     display: flex;
     gap: 2px;
     padding: 6px;
-    background: rgba(8, 11, 22, 0.55);
+    background: rgba(8, 11, 22, 0.8);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 12px;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
     align-self: center;
   }
   .sn-item {
@@ -139,8 +167,6 @@
     background: var(--ink);
     border: 1px solid var(--hair);
     border-radius: 10px;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
   }
   .stat {
     display: flex;
@@ -364,7 +390,7 @@
     background: #070a1a;
     border: 2px solid rgba(255,255,255,0.25);
     margin: 16px 0 0 0;
-    transition: all 0.25s;
+    transition: background-color 0.25s, border-color 0.25s, box-shadow 0.25s, transform 0.25s;
   }
   .chapter.active .chapter-dot {
     background: var(--color-moonstone);
@@ -422,8 +448,6 @@
     border: 1px solid var(--hair);
     border-radius: 100px;
     padding: 6px;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   }
   .t-btn {
@@ -437,6 +461,7 @@
     transition: all 0.15s;
   }
   .t-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .t-btn.on { background: rgba(49,169,199,0.18); color: #fff; }
   .t-btn.play {
     width: 48px; height: 48px;
     background: var(--color-moonstone);
@@ -476,8 +501,6 @@
     background: var(--ink-strong);
     border: 1px solid var(--hair);
     border-radius: 14px;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     padding: 22px 22px 20px;
     z-index: 20;
     box-shadow: 0 16px 60px rgba(0,0,0,0.6);
@@ -495,8 +518,6 @@
     border-radius: 14px;
     padding: 26px 32px 22px;
     z-index: 30;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     display: none;
     box-shadow: 0 20px 60px rgba(0,0,0,0.6);
     min-width: 320px;
@@ -544,6 +565,11 @@
     letter-spacing: 0.04em;
   }
   .kbd-hints .kh-close {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
     font-family: var(--font-design);
     font-size: 9px;
     color: rgba(255,255,255,0.4);
@@ -575,6 +601,22 @@
     text-transform: uppercase;
     letter-spacing: 0.18em;
     margin-left: 8px;
+  }
+  .tw-close {
+    background: transparent;
+    border: 0;
+    color: rgba(255,255,255,0.5);
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 6px;
+    cursor: pointer;
+  }
+  .tw-close:hover { color: #fff; }
+  .tw-hint {
+    display: block;
+    font-size: 10px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 2px;
   }
   .tw-section { margin-bottom: 18px; }
   .tw-section:last-child { margin-bottom: 0; }
@@ -614,7 +656,7 @@
     border: 1px solid var(--hair);
     border-radius: 8px;
     color: rgba(255,255,255,0.75);
-    font-family: "Shippori Mincho", serif;
+    font-family: var(--font-sans);
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;

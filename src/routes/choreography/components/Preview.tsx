@@ -4,99 +4,156 @@ import { ease } from '~/lib/easing';
 import { PALETTES } from '~/lib/formations';
 import { PALETTE_KEYS } from '~/types/formations';
 import type { EditableFormation, PaletteKey } from '~/types/formations';
+import type { ClockRef } from '../clock';
 
 interface Props {
   formation: EditableFormation;
-  time: number;
+  /** 再生位置（秒）。React の state を通さず毎フレーム読む */
+  clockRef: ClockRef;
+  /** この演目の開始時刻（秒） */
+  start: number;
   total: number;
+  playing: boolean;
+}
+
+/** 発光する点のスプライト。色ごとに一度だけ作って使い回す（毎フレーム全面ぼかしをかけるより桁違いに安い） */
+const spriteCache = new Map<string, HTMLCanvasElement>();
+const SPRITE = 32;
+function sprite(color: string): HTMLCanvasElement {
+  let cv = spriteCache.get(color);
+  if (cv) return cv;
+  cv = document.createElement('canvas');
+  cv.width = cv.height = SPRITE;
+  const ctx = cv.getContext('2d');
+  if (ctx) {
+    const h = SPRITE / 2;
+    const g = ctx.createRadialGradient(h, h, 0, h, h, h);
+    g.addColorStop(0, color);
+    g.addColorStop(0.18, color);
+    g.addColorStop(0.5, color + '55');
+    g.addColorStop(1, color + '00');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, SPRITE, SPRITE);
+  }
+  spriteCache.set(color, cv);
+  return cv;
 }
 
 /**
- * Mini 3D-projected preview using the EXACT shape targets the show uses,
- * rendered to a 2D canvas via simple Y-axis rotation + perspective so the
- * choreography editor and the live show stay visually consistent.
+ * 観賞ページと同じ形状データを、Y 軸回転＋透視投影で 2D canvas に描く小さなプレビュー。
+ *
+ * React の再レンダリングとは切り離し、自前の requestAnimationFrame で描く。
+ * 一時停止中は props が変わったときだけ描き直す。サイズは ResizeObserver で変わったときだけ取り直す
+ * （以前は毎フレーム getBoundingClientRect と canvas の再確保をしていた）。
  */
-export function Preview({ formation, time, total }: Props) {
+export function Preview({ formation, clockRef, start, total, playing }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const propsRef = useRef({ formation, start, total, playing });
+  propsRef.current = { formation, start, total, playing };
+  const dirtyRef = useRef(true);
+  useEffect(() => {
+    dirtyRef.current = true;
+  }, [formation, start, total, playing]);
 
   useEffect(() => {
     const c = canvasRef.current;
     if (!c) return;
-    const dpr = window.devicePixelRatio || 1;
-    const rect = c.getBoundingClientRect();
-    c.width = rect.width * dpr;
-    c.height = rect.height * dpr;
     const ctx = c.getContext('2d');
     if (!ctx) return;
-    ctx.scale(dpr, dpr);
-    const W = rect.width;
-    const H = rect.height;
-    ctx.clearRect(0, 0, W, H);
 
-    const lookup = formation.typeId || formation.id;
-    const fdata = findFormation(lookup);
-    if (!fdata) return;
-    const targets = fdata.targets;
-    const N_total = fdata.targets.length / 3;
-
-    const altOffset = (formation.altitude || 60) - 60;
-    const spreadScale = (formation.spread || 55) / 55;
-    const trans = formation.speed || 1;
-    const N_draw = Math.max(40, Math.round((N_total * (formation.drones || 660)) / 660));
-
-    const progress = total > 0 ? (time % total) / total : 0;
-    const easedV = ease(formation.easing, progress);
-    const pulseSz = 0.7 + easedV * 0.7;
-    const pulseAlpha = 0.72 + easedV * 0.28;
-
-    const cx = W / 2;
-    const cy = H / 2 + 12;
-    const worldCenter = 60;
-    const R = Math.min(W, H) * 0.45;
-    const scale = (R / 70) * spreadScale;
-    const rotY = time * 0.4 * trans;
-    const camDist = 220;
-    const sinR = Math.sin(rotY);
-    const cosR = Math.cos(rotY);
-
-    const ovKey: PaletteKey | null =
-      formation.paletteOverride &&
-      (PALETTE_KEYS as readonly string[]).includes(formation.paletteOverride)
-        ? formation.paletteOverride
+    let W = 0;
+    let H = 0;
+    let dpr = 1;
+    const resize = () => {
+      const rect = c.getBoundingClientRect();
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      W = Math.max(1, rect.width);
+      H = Math.max(1, rect.height);
+      c.width = Math.round(W * dpr);
+      c.height = Math.round(H * dpr);
+      dirtyRef.current = true;
+    };
+    resize();
+    const ro =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            resize();
+          })
         : null;
-    const ov = ovKey ? PALETTES[ovKey] : null;
-    const baseColor = ov ? ov.colors[0] : formation.color;
-    const accentColor = ov ? ov.colors[1] : formation.color;
+    ro?.observe(c);
 
-    const points: { sx: number; sy: number; depth: number; persp: number; i: number }[] = [];
-    for (let i = 0; i < N_draw; i++) {
-      const wx = targets[i * 3]!;
-      const wy = targets[i * 3 + 1]! + altOffset;
-      const wz = targets[i * 3 + 2]!;
-      const rx = wx * cosR + wz * sinR;
-      const rz = -wx * sinR + wz * cosR;
-      const persp = camDist / Math.max(1, camDist - rz);
-      const sx = cx + rx * scale * persp;
-      const sy = cy - (wy - worldCenter) * scale * persp;
-      points.push({ sx, sy, depth: rz, persp, i });
-    }
-    points.sort((a, b) => a.depth - b.depth);
+    const draw = (time: number) => {
+      const { formation: f, total: tot } = propsRef.current;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
 
-    for (const p of points) {
-      ctx.fillStyle = ov && p.i % 4 === 0 ? accentColor : baseColor;
-      const twinkle = 0.7 + Math.sin(p.i * 0.3 + rotY * 2) * 0.3;
-      const sz = 1.9 * pulseSz * twinkle * Math.max(0.55, p.persp);
+      const fdata = findFormation(f.typeId || f.id);
+      if (!fdata) return;
+      const targets = fdata.targets;
+      const nTotal = targets.length / 3;
+
+      const altOffset = (f.altitude || 60) - 60;
+      const spreadScale = (f.spread || 55) / 55;
+      const trans = f.speed || 1;
+      const nDraw = Math.max(40, Math.round((nTotal * (f.drones || 660)) / 660));
+
+      const progress = tot > 0 ? (time % tot) / tot : 0;
+      const easedV = ease(f.easing, progress);
+      const pulseSz = 0.7 + easedV * 0.7;
+      const pulseAlpha = 0.72 + easedV * 0.28;
+
+      const cx = W / 2;
+      const cy = H / 2 + 12;
+      const worldCenter = 60;
+      const R = Math.min(W, H) * 0.45;
+      const scale = (R / 70) * spreadScale;
+      const rotY = time * 0.4 * trans;
+      const camDist = 220;
+      const sinR = Math.sin(rotY);
+      const cosR = Math.cos(rotY);
+
+      const ovKey: PaletteKey | null =
+        f.paletteOverride && (PALETTE_KEYS as readonly string[]).includes(f.paletteOverride)
+          ? f.paletteOverride
+          : null;
+      const ov = ovKey ? PALETTES[ovKey] : null;
+      const base = sprite(ov ? ov.colors[0] : f.color);
+      const accent = sprite(ov ? ov.colors[1] : f.color);
+
+      // 加算合成なら奥行きで並べ替える必要がない
+      ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = pulseAlpha;
-      ctx.beginPath();
-      ctx.arc(p.sx, p.sy, sz, 0, Math.PI * 2);
-      ctx.fill();
-    }
+      for (let i = 0; i < nDraw; i++) {
+        const wx = targets[i * 3]!;
+        const wy = targets[i * 3 + 1]! + altOffset;
+        const wz = targets[i * 3 + 2]!;
+        const rx = wx * cosR + wz * sinR;
+        const rz = -wx * sinR + wz * cosR;
+        const persp = camDist / Math.max(1, camDist - rz);
+        const sx = cx + rx * scale * persp;
+        const sy = cy - (wy - worldCenter) * scale * persp;
+        const twinkle = 0.7 + Math.sin(i * 0.3 + rotY * 2) * 0.3;
+        const r = 3.6 * pulseSz * twinkle * Math.max(0.55, persp);
+        ctx.drawImage(ov && i % 4 === 0 ? accent : base, sx - r, sy - r, r * 2, r * 2);
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    };
 
-    ctx.globalAlpha = 0.18;
-    ctx.filter = 'blur(5px)';
-    ctx.drawImage(c, 0, 0, W, H);
-    ctx.filter = 'none';
-  }, [formation, time, total]);
+    let raf = 0;
+    const loop = () => {
+      raf = requestAnimationFrame(loop);
+      const p = propsRef.current;
+      if (!p.playing && !dirtyRef.current) return;
+      dirtyRef.current = false;
+      draw(Math.max(0, clockRef.current.time - p.start));
+    };
+    loop();
+    return () => {
+      cancelAnimationFrame(raf);
+      ro?.disconnect();
+    };
+  }, [clockRef]);
 
   return <canvas ref={canvasRef} style={{ width: '100%', height: '100%' }} />;
 }

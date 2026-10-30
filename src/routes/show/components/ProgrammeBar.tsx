@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { ComputedFormation } from '~/types/formations';
 import { fmtTime } from '../utils';
 
@@ -9,7 +10,13 @@ interface Props {
   onSeek: (i: number) => void;
 }
 
-export function ProgrammeBar({ formations, currentIndex, currentTime, totalTime, onSeek }: Props) {
+export const ProgrammeBar = memo(function ProgrammeBar({
+  formations,
+  currentIndex,
+  currentTime,
+  totalTime,
+  onSeek,
+}: Props) {
   const fillPct = totalTime > 0 ? ((currentTime / totalTime) * 100).toFixed(2) : '0';
   return (
     <div className="programme">
@@ -53,4 +60,4 @@ export function ProgrammeBar({ formations, currentIndex, currentTime, totalTime,
       </div>
     </div>
   );
-}
+});

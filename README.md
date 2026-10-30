@@ -18,7 +18,9 @@
 - Three.js ポイントクラウドで **660 機 × 9 演目** を描画
 - 演目: 球体 → 単螺旋 → 円環 → 波紋 → **熊 (Rilakkuma-ish)** → 二重螺旋 → 立方体 → 心臓 → **銀河 (フィナーレ)**
 - 下から見上げる斜めカメラデフォルト、マウスドラッグ / ホイールでオービット
-- キーボード: `Space` 再生, `←→` 演目, `1-9` ジャンプ, `+-` 速度, `F` 全画面, `S` スクリーンショット, `?` ヘルプ, `Esc` 閉じる
+- キーボード: `Space` 再生, `←→` 演目, `1-9` ジャンプ, `+-` 速度, `F` 全画面, `S` スクリーンショット, `T` 設定, `?` ヘルプ, `Esc` 閉じる
+- タッチ: ドラッグで回転、ピンチで距離。設定パネルはトランスポートの歯車ボタンから（キーボード無しでも開ける）
+- **軽量モード** (設定パネル): 解像度上限 1 倍・残像なし・星半減。描画が間に合わない端末では自動で切り替わる
 - `?f=<0..8>&speed=<n>` で URL deep-link、localStorage で設定永続化
 
 ### 振付エディタ (`/choreography`)
@@ -95,6 +97,28 @@ src/
 
 ---
 
+## パフォーマンス方針
+
+「それなりの環境でなくても見られる」ことを最優先にしている。手を入れるときは次を守る。
+
+**読み込み**
+- ページは route 単位で分割（`main.tsx` の `lazy`）。Three.js（gzip 114KB、JS の過半）は観賞ページだけが読み、`/fleet` `/choreography` `/schedule` では一切ダウンロードしない（E2E で担保）
+- `index.html` にインラインの最小 CSS と読み込み表示を置き、JS が届く前から画面を出す。React 側は同じ見た目の `HydrateFallback` で引き継ぐ
+- Web フォントは `preload` で取得だけ始め、`main.tsx` が適用する（描画をブロックしない）。Shippori Mincho は 500 の 1 ウェイトのみ。CJK フォントは 1 ウェイトで数百 KB になるため、12px 以下のボタン・ラベルには使わず OS の日本語サンセリフを使う
+- `/assets/*` はハッシュ付きなので `Cache-Control: immutable`（`vercel.json`）
+
+**観賞ページ (WebGL)** — `useDroneShow.ts`
+- `antialias` と `preserveDrawingBuffer` は切る（点スプライトには効かず、モバイル GPU で高くつく）。スクリーンショットは描いた直後の同じタスクで読み出す
+- 解像度は devicePixelRatio 1.5 倍を上限に、フレーム時間を測って 0.75 倍まで自動で下げる。下限でも遅ければ軽量モードへ切り替えてトーストで知らせる
+- タブが隠れたら止まる。一時停止中はカメラが止まった時点で描画もやめる。残像を切っているときは残像の描画自体をしない
+- 半透明の UI に `backdrop-filter`（ぼかし）は使わない。動き続ける canvas の上では毎フレームぼかし直しになり、非力な GPU で最も重い処理になる
+- HUD の更新は 5 回/秒、各オーバーレイは `memo` 化し、tick ごとにページ全体を描き直さない
+
+**振付エディタ**
+- 再生時計は ref（`clock.ts`）で持ち、React の state は 15 回/秒だけ更新する。プレビュー canvas は自前の `requestAnimationFrame` で時計を直接読む
+- プレビューは発光スプライトを `drawImage` する（全面 `blur` はしない）。サイズは `ResizeObserver` で変わったときだけ取り直す
+- ビートグリッド（最大 2000 本）、波形（200 本）、演目リスト、インスペクターは入力が変わらない限り描き直さない
+
 ## セキュリティ
 
 - CSP `default-src 'self'` 基線 + `script-src 'self'` (CDN 経由スクリプト無し)
@@ -115,9 +139,9 @@ src/
 | `pnpm lint` | ESLint (`--max-warnings=0`) |
 | `pnpm lint:fix` | ESLint + autofix |
 | `pnpm format` / `format:check` | Prettier |
-| `pnpm test` | Vitest (113 件, ~2s) |
+| `pnpm test` | Vitest (127 件, ~2s) |
 | `pnpm test:watch` / `test:coverage` | watch / カバレッジ |
-| `pnpm test:e2e` | Playwright E2E (18 件, chromium) |
+| `pnpm test:e2e` | Playwright E2E (21 件, chromium) |
 | `pnpm test:e2e:install` | chromium ブラウザ初回取得 |
 | `pnpm test:e2e:ui` | Playwright UI モード |
 | `pnpm replay <file>` | flightpath JSON の CLI 再生デモ |

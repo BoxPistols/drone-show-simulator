@@ -61,9 +61,7 @@ export function Modal({ open, onClose, label, children, container }: Props) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(2, 3, 10, 0.72)',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
+        background: 'rgba(2, 3, 10, 0.82)',
         display: 'grid',
         placeItems: 'center',
         zIndex: 1000,

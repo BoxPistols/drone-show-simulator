@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { NavLink } from 'react-router-dom';
 import { BrandMark } from '~/components/icons/BrandMark';
 
@@ -24,7 +25,7 @@ const NAV: readonly NavItem[] = [
   { to: '/schedule', jp: '運航', en: 'Schedule' },
 ];
 
-export function ChromeTop({ stats }: Props) {
+export const ChromeTop = memo(function ChromeTop({ stats }: Props) {
   return (
     <div className="hud chrome-top">
       <div className="brand">
@@ -67,4 +68,4 @@ export function ChromeTop({ stats }: Props) {
       </div>
     </div>
   );
-}
+});

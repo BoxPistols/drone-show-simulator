@@ -15,6 +15,8 @@ export default defineConfig({
     target: 'es2022',
     rollupOptions: {
       output: {
+        // three は観賞ページの lazy チャンクからだけ参照される。
+        // ここで独立チャンクにしておくと、three 以外のコード変更ではキャッシュが効き続ける。
         manualChunks: {
           three: ['three'],
           react: ['react', 'react-dom', 'react-router-dom'],

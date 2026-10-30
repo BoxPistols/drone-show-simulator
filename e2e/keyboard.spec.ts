@@ -27,6 +27,25 @@ test.describe('Show page keyboard shortcuts', () => {
     await expect(panel).not.toHaveClass(/open/);
   });
 
+  test('settings button opens the tweaks panel and the lite toggle persists', async ({ page }) => {
+    await page.goto('/');
+    const panel = page.locator('#tweaks-panel');
+    await page.getByRole('button', { name: /演出設定/ }).click();
+    await expect(panel).toHaveClass(/open/);
+
+    const lite = page.getByRole('switch', { name: /軽量モード/ });
+    await expect(lite).toHaveAttribute('aria-checked', 'false');
+    await lite.click();
+    await expect(lite).toHaveAttribute('aria-checked', 'true');
+
+    await page.reload();
+    await page.getByRole('button', { name: /演出設定/ }).click();
+    await expect(page.getByRole('switch', { name: /軽量モード/ })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+  });
+
   test('Space toggles the play/pause button aria-pressed state', async ({ page }) => {
     await page.goto('/');
     const playBtn = page.getByRole('button', { name: /一時停止|再生/ }).first();

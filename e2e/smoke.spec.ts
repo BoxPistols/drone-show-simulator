@@ -30,6 +30,30 @@ test.describe('SPA smoke', () => {
     await expect(page.getByRole('grid', { name: '日付グリッド' })).toBeVisible();
   });
 
+  test('ops pages never download the Three.js chunk (route-level code splitting)', async ({
+    page,
+  }) => {
+    const scripts: string[] = [];
+    page.on('request', (req) => {
+      if (req.resourceType() === 'script') scripts.push(req.url());
+    });
+    await page.goto('/fleet');
+    await expect(page.getByRole('heading', { name: '機体管理' })).toBeVisible();
+    await page
+      .getByRole('link', { name: /運航|Schedule/ })
+      .first()
+      .click();
+    await expect(page.getByRole('heading', { name: '運航スケジュール' })).toBeVisible();
+    expect(scripts.some((u) => /\/assets\/three-/.test(u))).toBe(false);
+  });
+
+  test('show page shows the loading mark until the route chunk arrives', async ({ page }) => {
+    // index.html に書かれたインラインの表示が、React のマウントで置き換わること
+    await page.goto('/');
+    await expect(page.getByRole('toolbar', { name: '再生コントロール' })).toBeVisible();
+    await expect(page.locator('.boot-dot')).toHaveCount(0);
+  });
+
   test('404 route renders nav back to home', async ({ page }) => {
     await page.goto('/this-route-does-not-exist');
     await expect(page.getByText('404 — Not Found')).toBeVisible();

@@ -3,7 +3,7 @@
 .sc-head .jp { font-family:var(--mincho); font-size:26px; letter-spacing:0.08em; font-weight:500; }
 .sc-head .en { font-family:"Poppins",sans-serif; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--pink); margin-top:4px; }
 .sc-actions { display:flex; gap:8px; }
-.sc-btn { padding:8px 14px; border-radius:8px; border:1px solid var(--hair); background:rgba(255,255,255,0.04); color:var(--text-1); font-size:12px; cursor:pointer; font-family:var(--mincho); letter-spacing:0.06em; }
+.sc-btn { padding:8px 14px; border-radius:8px; border:1px solid var(--hair); background:rgba(255,255,255,0.04); color:var(--text-1); font-size:12px; cursor:pointer; font-family:var(--font-sans); letter-spacing:0.06em; }
 .sc-btn:hover { background:rgba(255,255,255,0.08); color:#fff; }
 .sc-btn.primary { background:var(--moon); color:#02030a; border-color:var(--moon); font-weight:500; }
 
@@ -45,8 +45,8 @@
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
-  font-family:var(--mincho);
-  letter-spacing:0.04em;
+  font-family:var(--font-sans);
+  letter-spacing:0.02em;
 }
 .cal-ev.show { background:rgba(49,169,199,0.2); color:#6ed3e6; border-left:2px solid #31a9c7; }
 .cal-ev.rehearsal { background:rgba(251,191,36,0.14); color:#fbbf24; }
@@ -61,7 +61,7 @@
 
 .sect { margin-bottom:22px; }
 .sect-head { font-family:"Poppins",sans-serif; font-size:9px; letter-spacing:0.22em; text-transform:uppercase; color:var(--text-3); margin-bottom:10px; display:flex; justify-content:space-between; align-items:baseline; }
-.sect-head .jp { font-family:var(--mincho); font-size:11px; color:var(--text-2); letter-spacing:0.14em; text-transform:none; }
+.sect-head .jp { font-family:var(--font-sans); font-size:11px; color:var(--text-2); letter-spacing:0.14em; text-transform:none; }
 
 .ev-card {
   padding:14px 14px;

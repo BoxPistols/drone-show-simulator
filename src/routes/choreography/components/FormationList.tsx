@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { FORMATIONS } from '~/lib/formations';
 import type { EditableFormation } from '~/types/formations';
 import type { FormationId } from '~/types/formations';
@@ -19,7 +20,7 @@ function fmt(s: number) {
   return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
 }
 
-export function FormationList({
+export const FormationList = memo(function FormationList({
   formations,
   selectedIndex,
   addPickerOpen,
@@ -135,4 +136,4 @@ export function FormationList({
       ))}
     </div>
   );
-}
+});

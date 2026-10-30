@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import type { EditableFormation } from '~/types/formations';
 
 const MIN_DUR = 5;
@@ -30,7 +30,28 @@ interface DragRef {
   totalDurAtStart: number;
 }
 
-export function Timeline({
+/** ビートの縦線。最大 2000 本あるので、BPM と総尺が変わらない限り描き直さない */
+const BeatGrid = memo(function BeatGrid({ totalDur, bpm }: { totalDur: number; bpm: number }) {
+  if (bpm <= 0) return null;
+  const beatsPerSec = bpm / 60;
+  const n = Math.min(2000, Math.floor(totalDur * beatsPerSec) + 1);
+  const beats: React.ReactNode[] = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / beatsPerSec;
+    if (t > totalDur) break;
+    beats.push(
+      <div
+        key={i}
+        className={'tl-beat' + (i % 4 === 0 ? ' bar' : '')}
+        style={{ left: `${(t / totalDur) * 100}%` }}
+        aria-hidden="true"
+      />
+    );
+  }
+  return <>{beats}</>;
+});
+
+export const Timeline = memo(function Timeline({
   formations,
   starts,
   totalDur,
@@ -98,19 +119,7 @@ export function Timeline({
         ))}
       </div>
       <div className="tl-row">
-        {bpm > 0 &&
-          Array.from({ length: Math.min(2000, Math.floor(totalDur * beatsPerSec) + 1) }, (_, i) => {
-            const t = i / beatsPerSec;
-            if (t > totalDur) return null;
-            return (
-              <div
-                key={`b${String(i)}`}
-                className={'tl-beat' + (i % 4 === 0 ? ' bar' : '')}
-                style={{ left: `${(t / totalDur) * 100}%` }}
-                aria-hidden="true"
-              />
-            );
-          })}
+        <BeatGrid totalDur={totalDur} bpm={bpm} />
         {formations.map((f, i) => {
           const left = (starts[i]! / totalDur) * 100;
           const width = (f.dur / totalDur) * 100;
@@ -155,4 +164,4 @@ export function Timeline({
       </div>
     </div>
   );
-}
+});

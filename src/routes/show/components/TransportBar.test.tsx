@@ -13,14 +13,23 @@ function defaults() {
     onSpeedCycle: vi.fn(),
     onFullscreen: vi.fn(),
     onScreenshot: vi.fn(),
+    tweaksOpen: false,
+    onTweaks: vi.fn(),
   };
 }
 
 describe('<TransportBar>', () => {
-  it('renders a toolbar with all 6 controls', () => {
+  it('renders a toolbar with all 7 controls', () => {
     render(<TransportBar {...defaults()} />);
     expect(screen.getByRole('toolbar', { name: /再生コントロール/ })).toBeInTheDocument();
-    expect(screen.getAllByRole('button')).toHaveLength(6);
+    expect(screen.getAllByRole('button')).toHaveLength(7);
+  });
+
+  it('opens the tweaks panel from the settings button (no keyboard needed)', async () => {
+    const props = defaults();
+    render(<TransportBar {...props} />);
+    await userEvent.click(screen.getByRole('button', { name: /演出設定/ }));
+    expect(props.onTweaks).toHaveBeenCalledTimes(1);
   });
 
   it('shows pause icon while playing and reflects aria-pressed', () => {
