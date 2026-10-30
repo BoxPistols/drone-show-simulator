@@ -22,7 +22,7 @@ import {
   type EditableFormation,
 } from './store';
 import type { FormationId } from '~/types/formations';
-import type { Clock } from './clock';
+import { advanceClock, createClock, seekClock } from './clock';
 import './choreography.css';
 
 /** 文字や playhead を描き直す間隔。プレビューは clockRef を直接読んで毎フレーム描く */
@@ -48,9 +48,9 @@ export function ChoreographyPage() {
   const [selIdx, setSelIdx] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [time, setTimeState] = useState(0);
-  const clockRef = useRef<Clock>({ time: 0 });
+  const clockRef = useRef(createClock());
   const setTime = useCallback((t: number) => {
-    clockRef.current.time = t;
+    seekClock(clockRef.current, t);
     setTimeState(t);
   }, []);
   const [bpm, setBpm] = useState(120);
@@ -73,7 +73,7 @@ export function ChoreographyPage() {
       raf = requestAnimationFrame(tick);
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      clock.time = (clock.time + dt) % Math.max(1, totalDur);
+      advanceClock(clock, dt, totalDur);
       if (now - lastUi >= UI_TICK_MS) {
         lastUi = now;
         setTimeState(clock.time);
@@ -749,6 +749,8 @@ export function ChoreographyPage() {
           index={selIdx}
           clockRef={clockRef}
           start={starts[selIdx] ?? 0}
+          playing={playing}
+          pausedTime={playing ? 0 : time}
           onPatch={onPatch}
         />
       </div>

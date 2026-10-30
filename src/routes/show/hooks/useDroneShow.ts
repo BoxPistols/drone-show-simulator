@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { DRONE_COUNT, FORMATIONS, PALETTES, SKIES, TOTAL_TIME } from '~/lib/formations';
+import { makeGlowSprite } from '~/lib/glowSprite';
 import type { HudInfo, ShowState } from '../types';
+import { createResolutionController } from './resolution';
 
 export interface ShowHandle {
   /** 現在の見た目を PNG の data URL で返す。描画できない環境では null */
@@ -25,18 +27,7 @@ interface Options {
 
 const DISC_SIZE = 64;
 function makeDiscTexture(): THREE.CanvasTexture {
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = DISC_SIZE;
-  const ctx = cv.getContext('2d')!;
-  const h = DISC_SIZE / 2;
-  const g = ctx.createRadialGradient(h, h, 0, h, h, h);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.25, 'rgba(255,255,255,0.85)');
-  g.addColorStop(0.55, 'rgba(255,255,255,0.3)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, DISC_SIZE, DISC_SIZE);
-  const tex = new THREE.CanvasTexture(cv);
+  const tex = new THREE.CanvasTexture(makeGlowSprite(DISC_SIZE));
   tex.needsUpdate = true;
   return tex;
 }
@@ -47,16 +38,6 @@ const TRAIL_SLOTS = 8;
 /** 解像度の上限。点スプライトの発光は柔らかいので 1.5 倍以上は見分けがつかず、GPU の負担だけ増える */
 const DPR_CAP = 1.5;
 const DPR_CAP_LITE = 1;
-const DPR_FLOOR = 0.75;
-const DPR_STEP = 0.25;
-/** 平均フレーム時間がこれを超えたら解像度を一段下げる（約 36fps） */
-const SLOW_MS = 28;
-/** これより速く安定していれば一段戻す（60Hz で 16.7ms なので余裕あり） */
-const FAST_MS = 18;
-/** 判定に使うフレーム数。短すぎると一瞬の引っかかりで下げてしまう */
-const WINDOW_FRAMES = 90;
-/** 起動直後はシェーダのコンパイル等で遅いので測らない */
-const WARMUP_MS = 2500;
 
 /**
  * 観賞ページの Three.js シーン。canvasRoot だけを依存にした useEffect の中で動き、
@@ -110,11 +91,12 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
 
     // ---- 解像度 ----
     const deviceDpr = Math.max(0.5, window.devicePixelRatio || 1);
-    let dprCap = Math.min(
-      deviceDpr,
-      optsRef.current.stateRef.current.lite ? DPR_CAP_LITE : DPR_CAP
+    const capFor = (lite: boolean) => Math.min(deviceDpr, lite ? DPR_CAP_LITE : DPR_CAP);
+    const resolution = createResolutionController(
+      { cap: capFor(optsRef.current.stateRef.current.lite) },
+      performance.now()
     );
-    let dpr = dprCap;
+    let dpr = resolution.dpr;
     const applySize = () => {
       renderer.setPixelRatio(dpr);
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -249,13 +231,11 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
     }
 
     function applyLite(lite: boolean) {
-      // 星を半分にし、解像度の上限を 1 倍に落とす
+      // 星を半分にし、解像度の上限を 1 倍に落とす。切り替えたら新しい上限から測り直す
+      // （軽量モードを切ったときに、下げたままの解像度で居続けないように）
       starGeom.setDrawRange(0, lite ? STAR_COUNT / 2 : STAR_COUNT);
-      dprCap = Math.min(deviceDpr, lite ? DPR_CAP_LITE : DPR_CAP);
-      if (dpr > dprCap) {
-        dpr = dprCap;
-        applySize();
-      }
+      dpr = resolution.setCap(capFor(lite), performance.now());
+      applySize();
     }
 
     const initial = optsRef.current.stateRef.current;
@@ -352,52 +332,14 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
     el.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('resize', onResize);
 
-    // ---- 自動解像度 ----
-    const startT = performance.now();
-    let frameAcc = 0;
-    let frameN = 0;
-    let slowStreak = 0;
-    let lastDprChange = startT;
-    let upgradesLeft = 2;
-    let autoLiteSent = false;
     let fpsEma = 60;
-
-    function adaptResolution(dtMs: number, now: number) {
-      if (now - startT < WARMUP_MS) return;
-      if (dtMs > 250) return; // タブ切替などの飛びは無視
-      frameAcc += dtMs;
-      frameN++;
-      if (frameN < WINDOW_FRAMES) return;
-      const avg = frameAcc / frameN;
-      frameAcc = 0;
-      frameN = 0;
-      if (avg > SLOW_MS) {
-        if (dpr > DPR_FLOOR) {
-          dpr = Math.max(DPR_FLOOR, +(dpr - DPR_STEP).toFixed(2));
-          applySize();
-          lastDprChange = now;
-          slowStreak = 0;
-        } else {
-          slowStreak++;
-          if (slowStreak >= 2 && !autoLiteSent && !optsRef.current.stateRef.current.lite) {
-            autoLiteSent = true;
-            optsRef.current.onAutoLite();
-          }
-        }
-      } else if (avg < FAST_MS && dpr < dprCap && upgradesLeft > 0 && now - lastDprChange > 8000) {
-        dpr = Math.min(dprCap, +(dpr + DPR_STEP).toFixed(2));
-        applySize();
-        lastDprChange = now;
-        upgradesLeft--;
-      } else {
-        slowStreak = 0;
-      }
-    }
 
     // ---- 描画ループ ----
     let lastT = performance.now();
     let lastHud = 0;
     let frameCount = 0;
+    /** 前回の HUD 更新から描画したか。止まっているときは HUD も更新しない（React の再レンダリングを起こさない） */
+    let renderedSinceHud = true;
     let rafId: number | null = null;
     let stopped = false;
     /** 一時停止中にシークされたら、この回数分だけ物理を進めて機体を新しい形へ動かす */
@@ -413,7 +355,6 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       const dtMs = now - lastT;
       const dt = Math.min(0.05, dtMs / 1000);
       lastT = now;
-      frameCount++;
 
       const opts = optsRef.current;
       const state = opts.stateRef.current;
@@ -429,7 +370,7 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
         needsRender = true;
       }
       if (state.lite !== lastLite) {
-        // 利用者が自分で軽量モードを切ったあとは、このマウント中は自動で戻さない（autoLiteSent は据え置く）。
+        // 利用者が自分で軽量モードを切ったあとは、このマウント中は自動で戻さない（controller が合図を一度しか出さない）。
         // 自動切替が利用者の操作と喧嘩しないようにするため。解像度の自動調整はそのまま続く
         applyLite(state.lite);
         lastLite = state.lite;
@@ -538,15 +479,27 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
         camera.position.y = 60 + Math.sin(latR) * orbit.rDist;
         camera.lookAt(0, 60, 0);
         render();
+        frameCount++;
+        renderedSinceHud = true;
         needsRender = false;
-        if (state.playing) adaptResolution(dtMs, now);
+        if (dtMs > 0 && dtMs < 250) fpsEma += (1000 / dtMs - fpsEma) * 0.1;
+        if (state.playing) {
+          const action = resolution.push(dtMs, now);
+          if (action.type === 'dpr') {
+            dpr = action.dpr;
+            applySize();
+          } else if (action.type === 'lite' && !state.lite) {
+            opts.onAutoLite();
+          }
+        }
+      } else {
+        resolution.observe(dtMs);
       }
       lastShowTime = state.showTime;
 
-      if (dtMs > 0 && dtMs < 250) fpsEma += (1000 / dtMs - fpsEma) * 0.1;
-
-      if (now - lastHud >= 200) {
+      if (renderedSinceHud && now - lastHud >= 200) {
         lastHud = now;
+        renderedSinceHud = false;
         const alt = 60 + Math.abs(Math.sin(now * 0.0003)) * 70;
         const wind = 2 + Math.sin(now * 0.0007) * 0.8;
         opts.onHudTick({

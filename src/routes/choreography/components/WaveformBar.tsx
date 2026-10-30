@@ -31,7 +31,8 @@ const Bars = memo(function Bars({ samples, hasAudio }: { samples: number[]; hasA
  */
 export const WaveformBar = memo(function WaveformBar({ audio, time, totalDur, onSeek }: Props) {
   const samples = audio?.samples ?? FALLBACK_SAMPLES;
-  const clipId = useId();
+  // useId の ':' は url(#…) で扱いにくいので外す
+  const clipId = 'wf-' + useId().replace(/:/g, '');
   const progress = audio && totalDur > 0 ? Math.max(0, Math.min(1, time / totalDur)) : 0;
   const onClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -57,18 +58,20 @@ export const WaveformBar = memo(function WaveformBar({ audio, time, totalDur, on
       aria-valuenow={Math.round(time)}
     >
       <svg viewBox="0 0 800 36" preserveAspectRatio="none">
-        <defs>
-          <clipPath id={clipId}>
-            <rect x={0} y={0} width={800 * progress} height={36} />
-          </clipPath>
-        </defs>
         <g fill="rgba(255,255,255,0.35)">
           <Bars samples={samples} hasAudio={audio !== null} />
         </g>
         {audio && (
-          <g fill="var(--moon)" clipPath={`url(#${clipId})`}>
-            <Bars samples={samples} hasAudio />
-          </g>
+          <>
+            <defs>
+              <clipPath id={clipId}>
+                <rect x={0} y={0} width={800 * progress} height={36} />
+              </clipPath>
+            </defs>
+            <g fill="var(--moon)" clipPath={`url(#${clipId})`}>
+              <Bars samples={samples} hasAudio />
+            </g>
+          </>
         )}
       </svg>
     </div>

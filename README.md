@@ -109,13 +109,14 @@ src/
 
 **観賞ページ (WebGL)** — `useDroneShow.ts`
 - `antialias` と `preserveDrawingBuffer` は切る（点スプライトには効かず、モバイル GPU で高くつく）。スクリーンショットは描いた直後の同じタスクで読み出す
-- 解像度は devicePixelRatio 1.5 倍を上限に、フレーム時間を測って 0.75 倍まで自動で下げる。下限でも遅ければ軽量モードへ切り替えてトーストで知らせる
+- 解像度は devicePixelRatio 1.5 倍を上限に、フレーム時間を測って 0.75 倍まで自動で下げる（`hooks/resolution.ts`、純粋ロジックでテスト済み）。「遅い」の基準は表示装置のリフレッシュ間隔の推定値から決め、30Hz の表示を過負荷と誤判定しない。下限でも遅ければ軽量モードへ切り替えてトーストで知らせる。この自動切替は今回の表示だけで、保存される設定には書かない
 - タブが隠れたら止まる。一時停止中はカメラが止まった時点で描画もやめる。残像を切っているときは残像の描画自体をしない
 - 半透明の UI に `backdrop-filter`（ぼかし）は使わない。動き続ける canvas の上では毎フレームぼかし直しになり、非力な GPU で最も重い処理になる
 - HUD の更新は 5 回/秒、各オーバーレイは `memo` 化し、tick ごとにページ全体を描き直さない
 
 **振付エディタ**
-- 再生時計は ref（`clock.ts`）で持ち、React の state は 15 回/秒だけ更新する。プレビュー canvas は自前の `requestAnimationFrame` で時計を直接読む
+- 再生時計は ref（`clock.ts`）で持ち、React の state は 15 回/秒だけ更新する。プレビュー canvas は自前の `requestAnimationFrame` で時計を直接読む。シークは時計の `version` を上げるので、一時停止中でも読み手は描き直すべきと分かる
+- 発光スプライトは `lib/glowSprite.ts` を観賞ページと共用し、見た目を揃える。色文字列は `#rgb` / `rgb()` / 色名を受け、読めなければ白で描く
 - プレビューは発光スプライトを `drawImage` する（全面 `blur` はしない）。サイズは `ResizeObserver` で変わったときだけ取り直す
 - ビートグリッド（最大 2000 本）、波形（200 本）、演目リスト、インスペクターは入力が変わらない限り描き直さない
 
@@ -139,9 +140,9 @@ src/
 | `pnpm lint` | ESLint (`--max-warnings=0`) |
 | `pnpm lint:fix` | ESLint + autofix |
 | `pnpm format` / `format:check` | Prettier |
-| `pnpm test` | Vitest (127 件, ~2s) |
+| `pnpm test` | Vitest (163 件, ~3s) |
 | `pnpm test:watch` / `test:coverage` | watch / カバレッジ |
-| `pnpm test:e2e` | Playwright E2E (21 件, chromium) |
+| `pnpm test:e2e` | Playwright E2E (22 件, chromium) |
 | `pnpm test:e2e:install` | chromium ブラウザ初回取得 |
 | `pnpm test:e2e:ui` | Playwright UI モード |
 | `pnpm replay <file>` | flightpath JSON の CLI 再生デモ |

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { findFormation } from '~/lib/formations';
+import { makeGlowSprite, parseColor } from '~/lib/glowSprite';
 import { ease } from '~/lib/easing';
 import { PALETTES } from '~/lib/formations';
 import { PALETTE_KEYS } from '~/types/formations';
@@ -18,11 +19,13 @@ interface Props {
 
 /**
  * 発光する点のスプライト。色ごとに一度だけ作って使い回す（毎フレーム全面ぼかしをかけるより桁違いに安い）。
- * 色は演目の既定色とパレットで十数種だが、読み込んだ JSON には任意の色が入り得るので上限を設けて古いものから捨てる
+ * 色は演目の既定色とパレットで十数種だが、読み込んだ JSON には任意の色が入り得るので上限を設けて古いものから捨てる。
+ * 色文字列は #rgb / rgb() / 色名のどれでも受け、読めなければ白で描く（例外で描画が止まらないように）
  */
 const spriteCache = new Map<string, HTMLCanvasElement>();
 const MAX_SPRITE_CACHE = 64;
 const SPRITE = 32;
+let scratchCtx: CanvasRenderingContext2D | null | undefined;
 function sprite(color: string): HTMLCanvasElement {
   let cv = spriteCache.get(color);
   if (cv) return cv;
@@ -30,19 +33,8 @@ function sprite(color: string): HTMLCanvasElement {
     const oldest = spriteCache.keys().next().value;
     if (oldest !== undefined) spriteCache.delete(oldest);
   }
-  cv = document.createElement('canvas');
-  cv.width = cv.height = SPRITE;
-  const ctx = cv.getContext('2d');
-  if (ctx) {
-    const h = SPRITE / 2;
-    const g = ctx.createRadialGradient(h, h, 0, h, h, h);
-    g.addColorStop(0, color);
-    g.addColorStop(0.18, color);
-    g.addColorStop(0.5, color + '55');
-    g.addColorStop(1, color + '00');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, SPRITE, SPRITE);
-  }
+  if (scratchCtx === undefined) scratchCtx = document.createElement('canvas').getContext('2d');
+  cv = makeGlowSprite(SPRITE, parseColor(color, scratchCtx) ?? [255, 255, 255]);
   spriteCache.set(color, cv);
   return cv;
 }
@@ -51,7 +43,7 @@ function sprite(color: string): HTMLCanvasElement {
  * 観賞ページと同じ形状データを、Y 軸回転＋透視投影で 2D canvas に描く小さなプレビュー。
  *
  * React の再レンダリングとは切り離し、自前の requestAnimationFrame で描く。
- * 一時停止中は props が変わったときだけ描き直す。サイズは ResizeObserver で変わったときだけ取り直す
+ * 一時停止中は props が変わったときとシーク（clock の version が上がったとき）だけ描き直す。サイズは ResizeObserver で変わったときだけ取り直す
  * （以前は毎フレーム getBoundingClientRect と canvas の再確保をしていた）。
  */
 export function Preview({ formation, clockRef, start, total, playing }: Props) {
@@ -149,12 +141,15 @@ export function Preview({ formation, clockRef, start, total, playing }: Props) {
     };
 
     let raf = 0;
+    let lastVersion = -1;
     const loop = () => {
       raf = requestAnimationFrame(loop);
       const p = propsRef.current;
-      if (!p.playing && !dirtyRef.current) return;
+      const clock = clockRef.current;
+      if (!p.playing && !dirtyRef.current && clock.version === lastVersion) return;
       dirtyRef.current = false;
-      draw(Math.max(0, clockRef.current.time - p.start));
+      lastVersion = clock.version;
+      draw(Math.max(0, clock.time - p.start));
     };
     loop();
     return () => {

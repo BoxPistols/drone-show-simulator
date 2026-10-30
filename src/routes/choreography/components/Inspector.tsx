@@ -12,6 +12,9 @@ interface Props {
   clockRef: ClockRef;
   /** この演目の開始時刻（秒） */
   start: number;
+  playing: boolean;
+  /** 一時停止中の再生位置。再生中は 0 のまま（止まっているときのシークだけで変わる） */
+  pausedTime: number;
   onPatch: (patch: Partial<EditableFormation>) => void;
 }
 
@@ -22,26 +25,37 @@ function fmtEaseLive(time: number, total: number, easingName: EasingName): strin
   return `t=${t.toFixed(2)} → ${v.toFixed(2)}`;
 }
 
-/** 補間曲線の現在値。これだけが時間で変わるので、インスペクター全体を描き直さず 10 回/秒で自分だけ更新する */
+/**
+ * 補間曲線の現在値。これだけが時間で変わるので、インスペクター全体を描き直さず自分だけ更新する。
+ * 再生中は 10 回/秒で時計を読み、一時停止中はタイマーを止めてシークのときだけ計算し直す
+ */
 function EaseReadout({
   clockRef,
   start,
   total,
   easing,
+  playing,
+  pausedTime,
 }: {
   clockRef: ClockRef;
   start: number;
   total: number;
   easing: EasingName;
+  playing: boolean;
+  pausedTime: number;
 }) {
-  const [text, setText] = useState(() => fmtEaseLive(0, total, easing));
+  const [text, setText] = useState('');
   useEffect(() => {
+    if (!playing) {
+      setText(fmtEaseLive(Math.max(0, pausedTime - start), total, easing));
+      return;
+    }
     const tick = () =>
       setText(fmtEaseLive(Math.max(0, clockRef.current.time - start), total, easing));
     tick();
     const id = window.setInterval(tick, 100);
     return () => window.clearInterval(id);
-  }, [clockRef, start, total, easing]);
+  }, [clockRef, start, total, easing, playing, pausedTime]);
   return <b style={{ color: 'var(--moon)' }}>{text}</b>;
 }
 
@@ -50,6 +64,8 @@ export const Inspector = memo(function Inspector({
   index,
   clockRef,
   start,
+  playing,
+  pausedTime,
   onPatch,
 }: Props) {
   const fleetTotal = FLEET.total;
@@ -150,6 +166,8 @@ export const Inspector = memo(function Inspector({
               start={start}
               total={formation.dur}
               easing={formation.easing}
+              playing={playing}
+              pausedTime={pausedTime}
             />
           </span>
         </header>

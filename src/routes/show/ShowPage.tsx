@@ -4,7 +4,6 @@ import { FORMATIONS, TOTAL_TIME } from '~/lib/formations';
 import { usePersistedState } from '~/hooks/usePersistedState';
 import { useToast } from '~/hooks/useToast';
 import type { PaletteKey, SkyKey } from '~/types/formations';
-import { PALETTE_KEYS, SKY_KEYS } from '~/types/formations';
 import { ChromeTop } from './components/ChromeTop';
 import { KeyboardHints } from './components/KeyboardHints';
 import { NowPlayingCard } from './components/NowPlayingCard';
@@ -12,6 +11,7 @@ import { ProgrammeBar } from './components/ProgrammeBar';
 import { TransportBar } from './components/TransportBar';
 import { TweaksPanel } from './components/TweaksPanel';
 import { type ShowHandle, useDroneShow } from './hooks/useDroneShow';
+import { isPrefs, prefsReducer, withDefaults } from './prefs';
 import {
   DEFAULT_PREFS,
   type HudInfo,
@@ -21,52 +21,8 @@ import {
   type SpeedStep,
   type ToggleKey,
 } from './types';
-import { fmtTime, isSpeedStep, nearestSpeed } from './utils';
+import { fmtTime, nearestSpeed } from './utils';
 import './show.css';
-
-type PrefAction =
-  | { type: 'palette'; value: PaletteKey }
-  | { type: 'sky'; value: SkyKey }
-  | { type: 'toggle'; key: ToggleKey }
-  | { type: 'set'; key: ToggleKey; value: boolean }
-  | { type: 'droneSize'; value: number }
-  | { type: 'speed'; value: SpeedStep };
-
-function prefsReducer(state: ShowPrefs, action: PrefAction): ShowPrefs {
-  switch (action.type) {
-    case 'palette':
-      return { ...state, palette: action.value };
-    case 'sky':
-      return { ...state, sky: action.value };
-    case 'toggle':
-      return { ...state, [action.key]: !state[action.key] };
-    case 'set':
-      return state[action.key] === action.value ? state : { ...state, [action.key]: action.value };
-    case 'droneSize':
-      return { ...state, droneSize: Math.max(0.5, Math.min(2.5, action.value)) };
-    case 'speed':
-      return { ...state, speed: action.value };
-  }
-}
-
-/** 保存済み設定の検証。あとから増えた項目（lite）は無くても通し、既定値で補う */
-function isPrefs(v: unknown): v is ShowPrefs {
-  if (typeof v !== 'object' || v === null) return false;
-  const p = v as Partial<ShowPrefs>;
-  return (
-    typeof p.palette === 'string' &&
-    (PALETTE_KEYS as readonly string[]).includes(p.palette) &&
-    typeof p.sky === 'string' &&
-    (SKY_KEYS as readonly string[]).includes(p.sky) &&
-    typeof p.trails === 'boolean' &&
-    typeof p.rotate === 'boolean' &&
-    typeof p.glow === 'boolean' &&
-    (p.lite === undefined || typeof p.lite === 'boolean') &&
-    typeof p.droneSize === 'number' &&
-    typeof p.speed === 'number' &&
-    isSpeedStep(p.speed)
-  );
-}
 
 const INITIAL_HUD: HudInfo = { time: 0, alt: 0, wind: 0, frame: 0, fps: 0, dpr: 1 };
 
@@ -86,8 +42,7 @@ export function ShowPage() {
     const sp = parseFloat(searchParams.get('speed') ?? '');
     const speedFromUrl: SpeedStep | null = Number.isFinite(sp) && sp > 0 ? nearestSpeed(sp) : null;
     return {
-      ...DEFAULT_PREFS,
-      ...persistedPrefs,
+      ...withDefaults(persistedPrefs),
       ...(speedFromUrl !== null ? { speed: speedFromUrl } : {}),
     };
     // intentionally only seed once; subsequent edits flow through dispatch
@@ -98,6 +53,14 @@ export function ShowPage() {
   useEffect(() => {
     setPersistedPrefs(prefs);
   }, [prefs, setPersistedPrefs]);
+
+  // 描画が間に合わないときの自動軽量モード。今回の表示だけの状態で、保存はしない
+  // （一時的に重かっただけで、次回以降もずっと画質を落としたままにしないため）
+  const [autoLite, setAutoLite] = useState(false);
+  const effectiveLite = prefs.lite || autoLite;
+  const effectiveLiteRef = useRef(effectiveLite);
+  effectiveLiteRef.current = effectiveLite;
+  const effectivePrefs = useMemo(() => ({ ...prefs, lite: effectiveLite }), [prefs, effectiveLite]);
 
   const initialFormationIndex = useMemo(() => {
     const f = parseInt(searchParams.get('f') ?? '', 10);
@@ -113,8 +76,8 @@ export function ShowPage() {
     playing: true,
   });
   useEffect(() => {
-    stateRef.current = { ...stateRef.current, ...prefs };
-  }, [prefs]);
+    stateRef.current = { ...stateRef.current, ...effectivePrefs };
+  }, [effectivePrefs]);
 
   // ---- ループから戻ってくる表示用の状態 ----
   const [formationIndex, setFormationIndex] = useState(initialFormationIndex);
@@ -127,8 +90,8 @@ export function ShowPage() {
 
   const handleRef = useRef<ShowHandle | null>(null);
   const onAutoLite = useCallback(() => {
-    dispatch({ type: 'set', key: 'lite', value: true });
-    showToast('描画が重いため軽量モードに切り替えました（設定パネルで戻せます）');
+    setAutoLite(true);
+    showToast('描画が重いため、今回の表示だけ軽量モードに切り替えました（設定パネルで戻せます）');
   }, [showToast]);
   const onUnavailable = useCallback(() => setWebglUnavailable(true), []);
 
@@ -219,7 +182,19 @@ export function ShowPage() {
     []
   );
   const onSkyChange = useCallback((value: SkyKey) => dispatch({ type: 'sky', value }), []);
-  const onToggle = useCallback((key: ToggleKey) => dispatch({ type: 'toggle', key }), []);
+  const onToggle = useCallback((key: ToggleKey) => {
+    if (key !== 'lite') {
+      dispatch({ type: 'toggle', key });
+      return;
+    }
+    // 軽量モードの切替は「自動」と「保存される設定」をまとめて扱う
+    if (effectiveLiteRef.current) {
+      setAutoLite(false);
+      dispatch({ type: 'set', key: 'lite', value: false });
+    } else {
+      dispatch({ type: 'set', key: 'lite', value: true });
+    }
+  }, []);
   const onSizeChange = useCallback((value: number) => dispatch({ type: 'droneSize', value }), []);
 
   // ---- キーボード ----
@@ -351,7 +326,7 @@ export function ShowPage() {
       />
       <TweaksPanel
         open={tweaksOpen}
-        prefs={prefs}
+        prefs={effectivePrefs}
         formationIndex={formationIndex}
         onClose={closeTweaks}
         onPaletteChange={onPaletteChange}
