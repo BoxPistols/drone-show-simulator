@@ -34,6 +34,26 @@ function makeDiscTexture(): THREE.CanvasTexture {
 
 const STAR_COUNT = 1200;
 const TRAIL_SLOTS = 8;
+/** 360° モードで一周にかける速さ（度/秒）。20 秒で一周 */
+const FLY_DEG_PER_SEC = 18;
+/** 観客視点の画角と、機体目線の画角（機体目線は広めにして臨場感を出す） */
+const FOV_ORBIT = 45;
+const FOV_DRONE = 75;
+/** 点の大きさの上限（デバイスピクセル）。機体目線では隣の機体がカメラのすぐそばに来るため */
+const MAX_POINT_PX = 56;
+
+/**
+ * three の PointsMaterial は距離に反比例して点を大きくする。機体目線でカメラの 1〜2m 隣にいる機体は
+ * 画面いっぱいの光の塊になるので、頂点シェーダに上限を足す
+ */
+function clampPointSize(mat: THREE.PointsMaterial) {
+  mat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      'if ( isPerspective ) gl_PointSize *= ( scale / - mvPosition.z );',
+      `if ( isPerspective ) gl_PointSize = min( gl_PointSize * ( scale / - mvPosition.z ), ${MAX_POINT_PX.toFixed(1)} );`
+    );
+  };
+}
 
 /** 解像度の上限。点スプライトの発光は柔らかいので 1.5 倍以上は見分けがつかず、GPU の負担だけ増える */
 const DPR_CAP = 1.5;
@@ -65,7 +85,7 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
     scene.fog = new THREE.FogExp2(0x02030a, 0.0012);
 
     const camera = new THREE.PerspectiveCamera(
-      45,
+      FOV_ORBIT,
       window.innerWidth / window.innerHeight,
       0.1,
       2000
@@ -154,6 +174,7 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       blending: THREE.AdditiveBlending,
       sizeAttenuation: true,
     });
+    clampPointSize(droneMat);
     const dronePoints = new THREE.Points(droneGeom, droneMat);
     dronePoints.frustumCulled = false;
     scene.add(dronePoints);
@@ -172,6 +193,7 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
+    clampPointSize(trailMat);
     const trailPoints = new THREE.Points(trailGeom, trailMat);
     trailPoints.frustumCulled = false;
     trailPoints.visible = false;
@@ -191,6 +213,24 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       posBuf[i * 3 + 2] = Math.sin(a) * r;
     }
 
+    /** 機体目線で乗っている機体。カメラの位置にある点は消す（加算合成なので黒 = 見えない） */
+    let hiddenIdx = -1;
+    function setHidden(i: number) {
+      if (hiddenIdx === i) return;
+      if (hiddenIdx >= 0) {
+        colBuf[hiddenIdx * 3] = baseCol[hiddenIdx * 3]!;
+        colBuf[hiddenIdx * 3 + 1] = baseCol[hiddenIdx * 3 + 1]!;
+        colBuf[hiddenIdx * 3 + 2] = baseCol[hiddenIdx * 3 + 2]!;
+      }
+      hiddenIdx = i;
+      if (i >= 0) {
+        colBuf[i * 3] = 0;
+        colBuf[i * 3 + 1] = 0;
+        colBuf[i * 3 + 2] = 0;
+      }
+      droneGeom.attributes.color!.needsUpdate = true;
+    }
+
     function applyPalette(paletteKey: ShowState['palette']) {
       const pal = PALETTES[paletteKey].colors;
       const cols = pal.map((hex) => new THREE.Color(hex));
@@ -202,6 +242,11 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
         colBuf[i * 3] = c.r;
         colBuf[i * 3 + 1] = c.g;
         colBuf[i * 3 + 2] = c.b;
+      }
+      if (hiddenIdx >= 0) {
+        colBuf[hiddenIdx * 3] = 0;
+        colBuf[hiddenIdx * 3 + 1] = 0;
+        colBuf[hiddenIdx * 3 + 2] = 0;
       }
       droneGeom.attributes.color!.needsUpdate = true;
       // 残像の色も塗り直す（止まっている間に色を変えても古い色が残らないように）
@@ -259,9 +304,19 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       px: 0,
       py: 0,
     };
+    /** 機体目線の見回し（ヨー / ピッチ）と画角 */
+    const pov = { yaw: 0, pitch: 0, fov: FOV_DRONE, rFov: FOV_DRONE, idx: -1 };
+    const camPos = new THREE.Vector3();
+    const camLook = new THREE.Vector3(0, 60, 0);
+    const centroid = new THREE.Vector3();
+    const dir = new THREE.Vector3();
+    const tmp = new THREE.Vector3();
+    let flyT = 0;
+    let lastCamera = initial.camera;
     const pointers = new Map<number, { x: number; y: number }>();
     let pinchDist = 0;
     let needsRender = true;
+    const isDroneCam = () => optsRef.current.stateRef.current.camera === 'drone';
 
     const el = renderer.domElement;
     el.style.cursor = 'grab';
@@ -303,22 +358,32 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       if (pointers.size >= 2) {
         const d = pinchDistance();
         if (pinchDist > 0 && d > 0) {
-          orbit.dist = Math.max(120, Math.min(480, orbit.dist * (pinchDist / d)));
+          if (isDroneCam()) pov.fov = Math.max(35, Math.min(110, pov.fov * (pinchDist / d)));
+          else orbit.dist = Math.max(120, Math.min(480, orbit.dist * (pinchDist / d)));
         }
         pinchDist = d;
         needsRender = true;
         return;
       }
       if (!orbit.dragging) return;
-      orbit.lon += (e.clientX - orbit.px) * 0.25;
-      orbit.lat = Math.max(-60, Math.min(70, orbit.lat - (e.clientY - orbit.py) * 0.2));
+      const dx = e.clientX - orbit.px;
+      const dy = e.clientY - orbit.py;
       orbit.px = e.clientX;
       orbit.py = e.clientY;
+      if (isDroneCam()) {
+        // 機体目線では見回す
+        pov.yaw -= dx * 0.004;
+        pov.pitch = Math.max(-1.2, Math.min(1.2, pov.pitch - dy * 0.004));
+      } else {
+        orbit.lon += dx * 0.25;
+        orbit.lat = Math.max(-60, Math.min(70, orbit.lat - dy * 0.2));
+      }
       needsRender = true;
     };
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      orbit.dist = Math.max(120, Math.min(480, orbit.dist + e.deltaY * 0.3));
+      if (isDroneCam()) pov.fov = Math.max(35, Math.min(110, pov.fov + e.deltaY * 0.05));
+      else orbit.dist = Math.max(120, Math.min(480, orbit.dist + e.deltaY * 0.3));
       needsRender = true;
     };
     const onResize = () => {
@@ -460,24 +525,102 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
         needsRender = true;
       }
 
-      if (state.rotate && state.playing && !orbit.dragging) orbit.rLon += dt * 6;
-      const dLon = orbit.lon - orbit.rLon;
-      const dLat = orbit.lat - orbit.rLat;
-      const dDist = orbit.dist - orbit.rDist;
-      if (Math.abs(dLon) > 0.005 || Math.abs(dLat) > 0.005 || Math.abs(dDist) > 0.05) {
-        orbit.rLon += dLon * 0.12;
-        orbit.rLat += dLat * 0.12;
-        orbit.rDist += dDist * 0.12;
+      // ---- カメラ ----
+      if (state.camera !== lastCamera) {
+        lastCamera = state.camera;
+        pov.yaw = 0;
+        pov.pitch = 0;
+        pov.fov = FOV_DRONE;
+        camPos.copy(camera.position);
+        if (state.camera !== 'drone') setHidden(-1);
         needsRender = true;
+      }
+      if (state.camera === 'drone') {
+        if (state.povIndex !== pov.idx) {
+          pov.idx = state.povIndex;
+          pov.yaw = 0;
+          pov.pitch = 0;
+        }
+        const host = pov.idx >= 0 && pov.idx < DRONE_COUNT ? pov.idx : 0;
+        setHidden(host);
+        // 編隊の重心を見る（ドラッグで見回した分を足す）
+        let cx = 0;
+        let cy = 0;
+        let cz = 0;
+        for (let i = 0; i < DRONE_COUNT; i++) {
+          cx += posBuf[i * 3]!;
+          cy += posBuf[i * 3 + 1]!;
+          cz += posBuf[i * 3 + 2]!;
+        }
+        centroid.set(cx / DRONE_COUNT, cy / DRONE_COUNT, cz / DRONE_COUNT);
+        tmp.set(posBuf[host * 3]!, posBuf[host * 3 + 1]!, posBuf[host * 3 + 2]!);
+        if (camPos.distanceToSquared(tmp) > 1e-4) {
+          camPos.lerp(tmp, 0.2);
+          needsRender = true;
+        }
+        dir.subVectors(centroid, camPos);
+        const len = dir.length();
+        if (len < 1) dir.set(0, 0, -1);
+        else dir.divideScalar(len);
+        const theta = Math.atan2(dir.x, dir.z) + pov.yaw;
+        const phi = Math.max(
+          -1.4,
+          Math.min(1.4, Math.asin(Math.max(-1, Math.min(1, dir.y))) + pov.pitch)
+        );
+        tmp
+          .set(Math.cos(phi) * Math.sin(theta), Math.sin(phi), Math.cos(phi) * Math.cos(theta))
+          .multiplyScalar(10)
+          .add(camPos);
+        if (camLook.distanceToSquared(tmp) > 1e-4) {
+          camLook.lerp(tmp, 0.25);
+          needsRender = true;
+        }
+        if (Math.abs(pov.rFov - pov.fov) > 0.05) {
+          pov.rFov += (pov.fov - pov.rFov) * 0.15;
+          camera.fov = pov.rFov;
+          camera.updateProjectionMatrix();
+          needsRender = true;
+        }
+        if (needsRender) {
+          camera.position.copy(camPos);
+          camera.lookAt(camLook);
+        }
+      } else {
+        if (camera.fov !== FOV_ORBIT) {
+          camera.fov = FOV_ORBIT;
+          pov.rFov = FOV_DRONE;
+          camera.updateProjectionMatrix();
+          needsRender = true;
+        }
+        if (state.camera === 'fly') {
+          // 自動で一周しつつ、高さと距離がゆるく揺れる（一時停止中も動く）
+          flyT += dt;
+          orbit.lon += dt * FLY_DEG_PER_SEC;
+          orbit.lat = 12 + Math.sin(flyT * 0.09) * 22;
+          orbit.dist = 270 + Math.sin(flyT * 0.06) * 50;
+        } else if (state.rotate && state.playing && !orbit.dragging) {
+          orbit.lon += dt * 6;
+        }
+        const dLon = orbit.lon - orbit.rLon;
+        const dLat = orbit.lat - orbit.rLat;
+        const dDist = orbit.dist - orbit.rDist;
+        if (Math.abs(dLon) > 0.005 || Math.abs(dLat) > 0.005 || Math.abs(dDist) > 0.05) {
+          orbit.rLon += dLon * 0.12;
+          orbit.rLat += dLat * 0.12;
+          orbit.rDist += dDist * 0.12;
+          needsRender = true;
+        }
+        if (needsRender) {
+          const lonR = THREE.MathUtils.degToRad(orbit.rLon);
+          const latR = THREE.MathUtils.degToRad(orbit.rLat);
+          camera.position.x = Math.cos(latR) * Math.sin(lonR) * orbit.rDist;
+          camera.position.z = Math.cos(latR) * Math.cos(lonR) * orbit.rDist;
+          camera.position.y = 60 + Math.sin(latR) * orbit.rDist;
+          camera.lookAt(0, 60, 0);
+        }
       }
 
       if (needsRender) {
-        const lonR = THREE.MathUtils.degToRad(orbit.rLon);
-        const latR = THREE.MathUtils.degToRad(orbit.rLat);
-        camera.position.x = Math.cos(latR) * Math.sin(lonR) * orbit.rDist;
-        camera.position.z = Math.cos(latR) * Math.cos(lonR) * orbit.rDist;
-        camera.position.y = 60 + Math.sin(latR) * orbit.rDist;
-        camera.lookAt(0, 60, 0);
         render();
         frameCount++;
         renderedSinceHud = true;

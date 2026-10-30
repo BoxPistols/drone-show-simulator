@@ -10,9 +10,12 @@ import { NowPlayingCard } from './components/NowPlayingCard';
 import { ProgrammeBar } from './components/ProgrammeBar';
 import { TransportBar } from './components/TransportBar';
 import { TweaksPanel } from './components/TweaksPanel';
+import { useAmbientMusic } from './hooks/useAmbientMusic';
 import { type ShowHandle, useDroneShow } from './hooks/useDroneShow';
+import { CAMERA_META, nextCameraMode, pickPovDrone } from './pov';
 import { isPrefs, prefsReducer, withDefaults } from './prefs';
 import {
+  type CameraMode,
   DEFAULT_PREFS,
   type HudInfo,
   type ShowPrefs,
@@ -25,6 +28,8 @@ import { fmtTime, nearestSpeed } from './utils';
 import './show.css';
 
 const INITIAL_HUD: HudInfo = { time: 0, alt: 0, wind: 0, frame: 0, fps: 0, dpr: 1 };
+
+const droneId = (i: number) => `AS-${String(i + 1).padStart(3, '0')}`;
 
 export function ShowPage() {
   const canvasRootRef = useRef<HTMLDivElement>(null);
@@ -49,6 +54,8 @@ export function ShowPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [prefs, dispatch] = useReducer(prefsReducer, initial);
+  const prefsRef = useRef(prefs);
+  prefsRef.current = prefs;
 
   useEffect(() => {
     setPersistedPrefs(prefs);
@@ -74,6 +81,7 @@ export function ShowPage() {
     formationIndex: initialFormationIndex,
     showTime: FORMATIONS[initialFormationIndex]!.start + 0.01,
     playing: true,
+    povIndex: -1,
   });
   useEffect(() => {
     stateRef.current = { ...stateRef.current, ...effectivePrefs };
@@ -87,6 +95,55 @@ export function ShowPage() {
   useEffect(() => {
     stateRef.current.playing = playing;
   }, [playing]);
+
+  // ---- 機体目線で乗る機体 ----
+  const [povIndex, setPovIndex] = useState(-1);
+  const povIndexRef = useRef(povIndex);
+  povIndexRef.current = povIndex;
+  useEffect(() => {
+    stateRef.current.povIndex = povIndex;
+  }, [povIndex]);
+  const pickPov = useCallback((exclude: number) => {
+    const targets = FORMATIONS[stateRef.current.formationIndex]?.targets ?? FORMATIONS[0]!.targets;
+    const next = pickPovDrone(targets, exclude);
+    setPovIndex(next);
+    return next;
+  }, []);
+  const setCamera = useCallback(
+    (mode: CameraMode) => {
+      if (mode === 'drone' && povIndexRef.current < 0) pickPov(-1);
+      dispatch({ type: 'camera', value: mode });
+    },
+    [pickPov]
+  );
+  const cycleCamera = useCallback(
+    () => setCamera(nextCameraMode(prefsRef.current.camera)),
+    [setCamera]
+  );
+  const nextPov = useCallback(() => {
+    const id = pickPov(povIndexRef.current);
+    if (prefsRef.current.camera !== 'drone') dispatch({ type: 'camera', value: 'drone' });
+    showToast(`${droneId(id)} の目線に切り替えました`);
+  }, [pickPov, showToast]);
+  // 保存された設定が機体目線なら、起動時に乗る機体を決める
+  useEffect(() => {
+    if (initial.camera === 'drone') pickPov(-1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---- アンビエント音楽（端末で生成。初めて ON にしたときだけコードを読み込む） ----
+  const music = useAmbientMusic({
+    enabled: prefs.music,
+    volume: prefs.volume,
+    playing,
+    formationIndex,
+  });
+  const toggleMusic = useCallback(() => {
+    // AudioContext は操作の中で同期的に作る必要があるので、state を待たずにここで始める
+    if (!prefsRef.current.music) music.start();
+    dispatch({ type: 'toggle', key: 'music' });
+  }, [music]);
+  const onVolumeChange = useCallback((value: number) => dispatch({ type: 'volume', value }), []);
 
   const handleRef = useRef<ShowHandle | null>(null);
   const onAutoLite = useCallback(() => {
@@ -182,20 +239,28 @@ export function ShowPage() {
     []
   );
   const onSkyChange = useCallback((value: SkyKey) => dispatch({ type: 'sky', value }), []);
-  const onToggle = useCallback((key: ToggleKey) => {
-    if (key !== 'lite') {
-      dispatch({ type: 'toggle', key });
-      return;
-    }
-    // 軽量モードの切替は「自動」と「保存される設定」をまとめて扱う
-    if (effectiveLiteRef.current) {
-      setAutoLite(false);
-      dispatch({ type: 'set', key: 'lite', value: false });
-    } else {
-      dispatch({ type: 'set', key: 'lite', value: true });
-    }
-  }, []);
+  const onToggle = useCallback(
+    (key: ToggleKey) => {
+      if (key === 'music') {
+        toggleMusic();
+        return;
+      }
+      if (key !== 'lite') {
+        dispatch({ type: 'toggle', key });
+        return;
+      }
+      // 軽量モードの切替は「自動」と「保存される設定」をまとめて扱う
+      if (effectiveLiteRef.current) {
+        setAutoLite(false);
+        dispatch({ type: 'set', key: 'lite', value: false });
+      } else {
+        dispatch({ type: 'set', key: 'lite', value: true });
+      }
+    },
+    [toggleMusic]
+  );
   const onSizeChange = useCallback((value: number) => dispatch({ type: 'droneSize', value }), []);
+  const backToOrbit = useCallback(() => setCamera('orbit'), [setCamera]);
 
   // ---- キーボード ----
   useEffect(() => {
@@ -223,6 +288,18 @@ export function ShowPage() {
         case 's':
         case 'S':
           onScreenshot();
+          break;
+        case 'c':
+        case 'C':
+          cycleCamera();
+          break;
+        case 'v':
+        case 'V':
+          nextPov();
+          break;
+        case 'm':
+        case 'M':
+          toggleMusic();
           break;
         case '?':
         case '/':
@@ -262,6 +339,9 @@ export function ShowPage() {
     onPrev,
     onNext,
     toggleTweaks,
+    cycleCamera,
+    nextPov,
+    toggleMusic,
   ]);
 
   useEffect(() => {
@@ -305,10 +385,33 @@ export function ShowPage() {
         index={formationIndex}
         total={FORMATIONS.length}
       />
+      {prefs.camera !== 'orbit' && (
+        <div className="view-pill" role="status" aria-live="polite">
+          <span className="vp-mode">{CAMERA_META[prefs.camera].jp}</span>
+          {prefs.camera === 'drone' && povIndex >= 0 && (
+            <span className="vp-id">{droneId(povIndex)}</span>
+          )}
+          {prefs.camera === 'drone' && (
+            <button type="button" onClick={nextPov} aria-label="別の機体の目線へ (V)">
+              別の機体
+            </button>
+          )}
+          <button
+            type="button"
+            className="vp-close"
+            onClick={backToOrbit}
+            aria-label="観客の視点に戻る"
+            title="観客の視点に戻る"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <TransportBar
         playing={playing}
         speed={prefs.speed}
         tweaksOpen={tweaksOpen}
+        musicOn={prefs.music}
         onPlayToggle={togglePlay}
         onPrev={onPrev}
         onNext={onNext}
@@ -316,6 +419,7 @@ export function ShowPage() {
         onFullscreen={onFullscreen}
         onScreenshot={onScreenshot}
         onTweaks={toggleTweaks}
+        onMusic={toggleMusic}
       />
       <ProgrammeBar
         formations={FORMATIONS}
@@ -328,12 +432,16 @@ export function ShowPage() {
         open={tweaksOpen}
         prefs={effectivePrefs}
         formationIndex={formationIndex}
+        povIndex={povIndex}
         onClose={closeTweaks}
         onPaletteChange={onPaletteChange}
         onSkyChange={onSkyChange}
         onToggle={onToggle}
         onSizeChange={onSizeChange}
         onSeekFormation={seekToFormation}
+        onCameraChange={setCamera}
+        onNextPov={nextPov}
+        onVolumeChange={onVolumeChange}
       />
       <KeyboardHints open={hintsOpen} onClose={closeHints} />
       <div className="frame-count" aria-hidden="true">

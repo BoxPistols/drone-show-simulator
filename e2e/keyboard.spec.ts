@@ -54,4 +54,38 @@ test.describe('Show page keyboard shortcuts', () => {
     await page.keyboard.press(' ');
     await expect(playBtn).not.toHaveAttribute('aria-pressed', initial ?? 'true');
   });
+
+  test('C cycles camera modes and the view pill offers a way back', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('toolbar', { name: '再生コントロール' })).toBeVisible();
+    await expect(page.locator('.view-pill')).toHaveCount(0);
+
+    await page.keyboard.press('c');
+    const pill = page.locator('.view-pill');
+    await expect(pill).toContainText('機体目線');
+    await expect(pill).toContainText(/AS-\d{3}/);
+
+    await page.keyboard.press('c');
+    await expect(pill).toContainText('360');
+
+    await page.getByRole('button', { name: '観客の視点に戻る' }).click();
+    await expect(page.locator('.view-pill')).toHaveCount(0);
+  });
+
+  test('V switches to another drone and M toggles the ambient music', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('toolbar', { name: '再生コントロール' })).toBeVisible();
+    await page.keyboard.press('v');
+    const pill = page.locator('.view-pill');
+    const first = await pill.locator('.vp-id').textContent();
+    await page.getByRole('button', { name: /別の機体の目線へ/ }).click();
+    await expect(pill.locator('.vp-id')).not.toHaveText(first ?? '');
+
+    const music = page.getByRole('button', { name: /アンビエント音楽/ });
+    await expect(music).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press('m');
+    await expect(music).toHaveAttribute('aria-pressed', 'true');
+    await music.click();
+    await expect(music).toHaveAttribute('aria-pressed', 'false');
+  });
 });

@@ -13,6 +13,8 @@ interface Props {
   onFullscreen: () => void;
   onScreenshot: () => void;
   onTweaks: () => void;
+  musicOn: boolean;
+  onMusic: () => void;
 }
 
 const ICON = {
@@ -38,6 +40,8 @@ export const TransportBar = memo(function TransportBar({
   onFullscreen,
   onScreenshot,
   onTweaks,
+  musicOn,
+  onMusic,
 }: Props) {
   return (
     <div className="transport" role="toolbar" aria-label="再生コントロール">
@@ -87,6 +91,26 @@ export const TransportBar = memo(function TransportBar({
         title="Click で変速 ・ Shift+Click で逆送り ・ +/−"
       >
         {fmtSpeed(speed)}
+      </button>
+      <button
+        type="button"
+        className={'t-btn' + (musicOn ? ' on' : '')}
+        onClick={onMusic}
+        aria-label={musicOn ? 'アンビエント音楽を止める (M)' : 'アンビエント音楽を流す (M)'}
+        aria-pressed={musicOn}
+        title="アンビエント音楽 ・ M"
+      >
+        <svg {...ICON} width="15" height="15">
+          <path d="M2.5 6.2v3.6h2.6L9 12.8V3.2L5.1 6.2Z" />
+          {musicOn ? (
+            <>
+              <path d="M11 5.6a3.2 3.2 0 0 1 0 4.8" />
+              <path d="M12.8 3.6a6 6 0 0 1 0 8.8" />
+            </>
+          ) : (
+            <path d="M11.2 6 14 9.9M14 6l-2.8 3.9" />
+          )}
+        </svg>
       </button>
       <button
         type="button"

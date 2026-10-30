@@ -505,8 +505,86 @@
     z-index: 20;
     box-shadow: 0 16px 60px rgba(0,0,0,0.6);
     display: none;
+    /* 項目が増えて画面より高くなることがあるので、はみ出す分はパネルの中でスクロールさせる */
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   #tweaks-panel.open { display: block; }
+
+  /* 視点の表示（観客以外のときだけ出る） */
+  .view-pill {
+    position: fixed;
+    left: 50%;
+    bottom: 244px;
+    transform: translateX(-50%);
+    z-index: 16;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px 6px 14px;
+    background: var(--ink-strong);
+    border: 1px solid var(--hair);
+    border-radius: 100px;
+    font-family: var(--font-design);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: rgba(255,255,255,0.85);
+    white-space: nowrap;
+  }
+  .view-pill .vp-mode {
+    font-family: "Shippori Mincho", serif;
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    color: #fff;
+  }
+  .view-pill .vp-id {
+    font-family: var(--font-mono);
+    color: var(--color-moonstone);
+    letter-spacing: 0.08em;
+  }
+  .view-pill button {
+    padding: 5px 10px;
+    border-radius: 100px;
+    border: 1px solid var(--hair-2);
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.8);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .view-pill button:hover { background: rgba(255,255,255,0.12); color: #fff; }
+  .view-pill .vp-close {
+    width: 26px; height: 26px;
+    padding: 0;
+    display: grid; place-items: center;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .tw-cameras {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .tw-cam-desc {
+    font-size: 10.5px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.45);
+    margin-top: 8px;
+  }
+  .tw-next {
+    margin-top: 8px;
+    width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--hair);
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.8);
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .tw-next:hover { background: rgba(49,169,199,0.12); border-color: rgba(49,169,199,0.4); color: #fff; }
 
   /* Keyboard hints overlay */
   .kbd-hints {
@@ -813,6 +891,7 @@
     .chapter-meta { display: none; }
     .chapter-dot { margin: 6px 0 0 0; }
     .transport { bottom: 92px; padding: 5px; gap: 2px; }
+    .view-pill { bottom: 150px; font-size: 10px; padding: 5px 6px 5px 12px; gap: 8px; }
     .t-btn { width: 34px; height: 34px; }
     .t-btn.play { width: 40px; height: 40px; }
     .t-speed { font-size: 10px; padding: 0 10px; }

@@ -2,18 +2,24 @@ import { memo } from 'react';
 import { PALETTES, SKIES, FORMATIONS } from '~/lib/formations';
 import type { PaletteKey, SkyKey } from '~/types/formations';
 import { PALETTE_KEYS, SKY_KEYS } from '~/types/formations';
-import type { ShowPrefs, ToggleKey } from '../types';
+import { CAMERA_META } from '../pov';
+import { CAMERA_MODES, type CameraMode, type ShowPrefs, type ToggleKey } from '../types';
 
 interface Props {
   open: boolean;
   prefs: ShowPrefs;
   formationIndex: number;
+  /** 機体目線で乗っている機体（0 始まり）。未選択は -1 */
+  povIndex: number;
   onClose: () => void;
   onPaletteChange: (k: PaletteKey) => void;
   onSkyChange: (k: SkyKey) => void;
   onToggle: (key: ToggleKey) => void;
   onSizeChange: (n: number) => void;
   onSeekFormation: (i: number) => void;
+  onCameraChange: (mode: CameraMode) => void;
+  onNextPov: () => void;
+  onVolumeChange: (v: number) => void;
 }
 
 const TOGGLES: ReadonlyArray<{ key: ToggleKey; label: string; hint?: string }> = [
@@ -31,12 +37,16 @@ export const TweaksPanel = memo(function TweaksPanel({
   open,
   prefs,
   formationIndex,
+  povIndex,
   onClose,
   onPaletteChange,
   onSkyChange,
   onToggle,
   onSizeChange,
   onSeekFormation,
+  onCameraChange,
+  onNextPov,
+  onVolumeChange,
 }: Props) {
   return (
     <div
@@ -53,6 +63,65 @@ export const TweaksPanel = memo(function TweaksPanel({
         <button type="button" className="tw-close" aria-label="閉じる" onClick={onClose}>
           ×
         </button>
+      </div>
+
+      <div className="tw-section">
+        <div className="tw-label">Camera ・ 視点</div>
+        <div className="tw-cameras" role="radiogroup" aria-label="視点">
+          {CAMERA_MODES.map((mode) => {
+            const m = CAMERA_META[mode];
+            return (
+              <button
+                key={mode}
+                type="button"
+                role="radio"
+                aria-checked={prefs.camera === mode}
+                className={'tw-form-btn' + (prefs.camera === mode ? ' active' : '')}
+                onClick={() => onCameraChange(mode)}
+              >
+                {m.jp}
+                <span className="en">{m.en}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="tw-cam-desc">{CAMERA_META[prefs.camera].desc}</div>
+        {prefs.camera === 'drone' && (
+          <button type="button" className="tw-next" onClick={onNextPov}>
+            別の機体へ{povIndex >= 0 && ` ・ 今は AS-${String(povIndex + 1).padStart(3, '0')}`}
+          </button>
+        )}
+      </div>
+
+      <div className="tw-section">
+        <div className="tw-label">Sound ・ 音</div>
+        <div className="tw-toggle-row">
+          <span>
+            アンビエント音楽 Music
+            <small className="tw-hint">端末で生成する環境音。演目ごとに和音が移ります</small>
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={prefs.music}
+            aria-label="アンビエント音楽"
+            className={'tw-toggle' + (prefs.music ? ' on' : '')}
+            onClick={() => onToggle('music')}
+          />
+        </div>
+        <div className="tw-label" style={{ marginTop: 6 }}>
+          Volume <span className="tw-slider-value">{Math.round(prefs.volume * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          className="tw-slider"
+          min={0}
+          max={1}
+          step={0.05}
+          value={prefs.volume}
+          onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
+          aria-label="音量"
+        />
       </div>
 
       <div className="tw-section">

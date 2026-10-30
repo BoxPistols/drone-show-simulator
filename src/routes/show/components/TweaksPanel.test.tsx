@@ -15,6 +15,10 @@ function renderPanel(over: Partial<React.ComponentProps<typeof TweaksPanel>> = {
     onToggle: vi.fn(),
     onSizeChange: vi.fn(),
     onSeekFormation: vi.fn(),
+    povIndex: -1,
+    onCameraChange: vi.fn(),
+    onNextPov: vi.fn(),
+    onVolumeChange: vi.fn(),
     ...over,
   };
   return { ...render(<TweaksPanel {...props} />), props };
@@ -55,5 +59,35 @@ describe('<TweaksPanel>', () => {
     const panel = container.querySelector('#tweaks-panel');
     expect(panel).toHaveAttribute('aria-hidden', 'true');
     expect(panel).not.toHaveClass('open');
+  });
+
+  it('offers the three camera modes as a radio group and reports the choice', async () => {
+    const { props } = renderPanel();
+    const radios = screen.getAllByRole('radio');
+    expect(radios).toHaveLength(3);
+    expect(screen.getByRole('radio', { name: /観客/ })).toHaveAttribute('aria-checked', 'true');
+    await userEvent.click(screen.getByRole('radio', { name: /機体目線/ }));
+    expect(props.onCameraChange).toHaveBeenCalledWith('drone');
+    await userEvent.click(screen.getByRole('radio', { name: /360/ }));
+    expect(props.onCameraChange).toHaveBeenCalledWith('fly');
+  });
+
+  it('in drone view shows which drone is used and lets you pick another', async () => {
+    const { props } = renderPanel({ prefs: { ...DEFAULT_PREFS, camera: 'drone' }, povIndex: 41 });
+    const next = screen.getByRole('button', { name: /別の機体へ/ });
+    expect(next).toHaveTextContent('AS-042');
+    await userEvent.click(next);
+    expect(props.onNextPov).toHaveBeenCalledTimes(1);
+    renderPanel({ prefs: DEFAULT_PREFS });
+    expect(screen.queryAllByRole('button', { name: /別の機体へ/ })).toHaveLength(1);
+  });
+
+  it('music switch and volume slider report changes', async () => {
+    const { props } = renderPanel({ prefs: { ...DEFAULT_PREFS, volume: 0.25 } });
+    await userEvent.click(screen.getByRole('switch', { name: 'アンビエント音楽' }));
+    expect(props.onToggle).toHaveBeenCalledWith('music');
+    const slider = screen.getByRole('slider', { name: '音量' });
+    expect(slider).toHaveValue('0.25');
+    expect(screen.getByText('25%')).toBeInTheDocument();
   });
 });

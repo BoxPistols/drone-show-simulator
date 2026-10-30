@@ -15,14 +15,30 @@ function defaults() {
     onScreenshot: vi.fn(),
     tweaksOpen: false,
     onTweaks: vi.fn(),
+    musicOn: false,
+    onMusic: vi.fn(),
   };
 }
 
 describe('<TransportBar>', () => {
-  it('renders a toolbar with all 7 controls', () => {
+  it('renders a toolbar with all 8 controls', () => {
     render(<TransportBar {...defaults()} />);
     expect(screen.getByRole('toolbar', { name: /再生コントロール/ })).toBeInTheDocument();
-    expect(screen.getAllByRole('button')).toHaveLength(7);
+    expect(screen.getAllByRole('button')).toHaveLength(8);
+  });
+
+  it('music button reflects state and toggles', async () => {
+    const props = defaults();
+    const { rerender } = render(<TransportBar {...props} />);
+    const btn = screen.getByRole('button', { name: /アンビエント音楽を流す/ });
+    expect(btn).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(btn);
+    expect(props.onMusic).toHaveBeenCalledTimes(1);
+    rerender(<TransportBar {...props} musicOn />);
+    expect(screen.getByRole('button', { name: /アンビエント音楽を止める/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
   });
 
   it('opens the tweaks panel from the settings button (no keyboard needed)', async () => {
