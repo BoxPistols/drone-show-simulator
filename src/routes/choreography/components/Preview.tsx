@@ -16,12 +16,20 @@ interface Props {
   playing: boolean;
 }
 
-/** 発光する点のスプライト。色ごとに一度だけ作って使い回す（毎フレーム全面ぼかしをかけるより桁違いに安い） */
+/**
+ * 発光する点のスプライト。色ごとに一度だけ作って使い回す（毎フレーム全面ぼかしをかけるより桁違いに安い）。
+ * 色は演目の既定色とパレットで十数種だが、読み込んだ JSON には任意の色が入り得るので上限を設けて古いものから捨てる
+ */
 const spriteCache = new Map<string, HTMLCanvasElement>();
+const MAX_SPRITE_CACHE = 64;
 const SPRITE = 32;
 function sprite(color: string): HTMLCanvasElement {
   let cv = spriteCache.get(color);
   if (cv) return cv;
+  if (spriteCache.size >= MAX_SPRITE_CACHE) {
+    const oldest = spriteCache.keys().next().value;
+    if (oldest !== undefined) spriteCache.delete(oldest);
+  }
   cv = document.createElement('canvas');
   cv.width = cv.height = SPRITE;
   const ctx = cv.getContext('2d');

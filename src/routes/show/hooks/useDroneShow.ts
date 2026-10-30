@@ -75,15 +75,9 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
   useEffect(() => {
     if (!canvasRoot) return;
 
-    const probe = document.createElement('canvas');
-    const gl =
-      probe.getContext('webgl2') ??
-      probe.getContext('webgl') ??
-      probe.getContext('experimental-webgl');
-    if (!gl) {
-      optsRef.current.onUnavailable();
-      return;
-    }
+    // WebGL の有無は WebGLRenderer の生成で判定する（下の try/catch）。
+    // 以前は別 canvas で探りの context を作っていたが、それは解放されず、
+    // ページ内の WebGL context 上限（ブラウザにより 8〜16）を SPA 遷移のたびに 1 つ消費していた。
 
     // ---- Scene ----
     const scene = new THREE.Scene();
@@ -435,6 +429,8 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
         needsRender = true;
       }
       if (state.lite !== lastLite) {
+        // 利用者が自分で軽量モードを切ったあとは、このマウント中は自動で戻さない（autoLiteSent は据え置く）。
+        // 自動切替が利用者の操作と喧嘩しないようにするため。解像度の自動調整はそのまま続く
         applyLite(state.lite);
         lastLite = state.lite;
         needsRender = true;
@@ -611,6 +607,8 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       trailMat.dispose();
       discTex.dispose();
       renderer.dispose();
+      // dispose() は context を解放しない。SPA 遷移で何度もマウントされても上限に当たらないよう明示的に失わせる
+      renderer.forceContextLoss();
       scene.clear();
     };
   }, [canvasRoot]);
