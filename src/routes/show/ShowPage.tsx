@@ -11,6 +11,7 @@ import { NowPlayingCard } from './components/NowPlayingCard';
 import { ProgrammeBar } from './components/ProgrammeBar';
 import { TransportBar } from './components/TransportBar';
 import { TweaksPanel } from './components/TweaksPanel';
+import { WebglNotice } from './components/WebglNotice';
 import { useAmbientMusic } from './hooks/useAmbientMusic';
 import { type ShowHandle, useDroneShow } from './hooks/useDroneShow';
 import { CAMERA_META, nextCameraMode, pickPovDrone } from './pov';
@@ -370,12 +371,7 @@ export function ShowPage() {
         TOKYO BAY ・ 35.6762°N 139.7690°E
       </div>
 
-      {webglUnavailable && (
-        <div className="webgl-notice" role="status">
-          <strong>3D 表示を利用できません</strong>
-          このブラウザでは WebGL が無効か、対応していません。演目の情報と操作はそのまま使えます。
-        </div>
-      )}
+      {webglUnavailable && <WebglNotice />}
 
       <ChromeTop stats={stats} />
       <NowPlayingCard

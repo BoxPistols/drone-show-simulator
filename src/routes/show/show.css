@@ -37,30 +37,63 @@
   /* ドラッグで回転させるので、タッチのスクロール／ズームに奪わせない */
   #canvas-root canvas { touch-action: none; user-select: none; -webkit-user-select: none; }
 
-  /* WebGL が使えないときの案内 */
+  /* WebGL が使えないときの案内。<dialog> の showModal で最前面（top layer）に出るので z-index は不要。
+     文章が長いので、画面が低いときは中でスクロールさせる */
   .webgl-notice {
-    position: fixed;
-    left: 50%; top: 45%;
-    transform: translate(-50%, -50%);
-    z-index: 8;
-    max-width: min(420px, calc(100vw - 32px));
-    padding: 16px 20px;
+    width: min(540px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    margin: auto;
+    padding: 22px 26px 18px;
     background: var(--ink-strong);
     border: 1px solid var(--hair-2);
     border-radius: 12px;
-    font-size: 12.5px;
-    line-height: 1.7;
-    color: rgba(255,255,255,0.75);
+    font-size: 13px;
+    line-height: 1.85;
+    color: rgba(255,255,255,0.8);
   }
-  .webgl-notice strong {
-    display: block;
+  .webgl-notice:focus { outline: none; }
+  .webgl-notice::backdrop { background: rgba(2,3,10,0.6); }
+  .webgl-notice h2 {
+    margin: 0 0 6px;
     font-family: "Shippori Mincho", "Yu Mincho", serif;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 500;
     color: #fff;
-    margin-bottom: 4px;
     letter-spacing: 0.06em;
   }
+  .webgl-notice h3 {
+    margin: 16px 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .webgl-notice p { margin: 0 0 8px; }
+  .webgl-notice code {
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.08);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: #fff;
+    user-select: all;
+    -webkit-user-select: all;
+    word-break: break-all;
+  }
+  .webgl-notice-close {
+    display: block;
+    margin: 12px 0 0 auto;
+    padding: 6px 16px;
+    min-height: 32px;
+    background: transparent;
+    border: 1px solid var(--hair-2);
+    border-radius: 999px;
+    color: #fff;
+    font: inherit;
+    cursor: pointer;
+  }
+  .webgl-notice-close:hover { background: rgba(255,255,255,0.06); }
+  .webgl-notice-close:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
 
   /* ====== UI Overlay ====== */
   .hud {
