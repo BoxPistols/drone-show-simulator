@@ -23,9 +23,22 @@ const NAMES: Record<BrowserKind, string> = {
   other: 'ブラウザ',
 };
 
-const LOCKDOWN_IOS: Paragraph = [
-  'iPhone や iPad で 3D が表示されない一番多い原因は「ロックダウンモード」です。オンのときは WebGL が止まります。このサイトだけ対象から外す場合は、Safari のアドレスバー左の「ぁあ」から「Web サイトの設定」を開き、「ロックダウンモード」をオフにしてください。端末全体の状態は「設定」→「プライバシーとセキュリティ」→「ロックダウンモード」で確認できます。',
-];
+/** iOS のロックダウンモード。サイト単位の除外は Safari だけで、ほかのブラウザはアプリ単位で外す */
+function lockdownIos(browser: BrowserKind): Paragraph {
+  const intro =
+    'iPhone や iPad で 3D が表示されない一番多い原因は「ロックダウンモード」です。オンのときは WebGL が止まります。端末全体の状態は「設定」→「プライバシーとセキュリティ」→「ロックダウンモード」で確認できます。';
+  if (browser === 'safari') {
+    return [
+      intro +
+        'このサイトだけ対象から外す場合は、Safari でこのページを開いたまま、アドレスバー左の「ぁあ」から「Web サイトの設定」を開き、「ロックダウンモード」をオフにしてください。',
+    ];
+  }
+  const name = browser === 'other' ? 'お使いのブラウザ' : NAMES[browser];
+  return [
+    intro +
+      `${name} を対象から外す場合は、その「ロックダウンモード」の画面にある Web ブラウズの設定を開き、アプリの一覧で ${name} を除外してください。Safari の「ぁあ」メニューでの設定は Safari にしか効かないので、このブラウザではこちらの手順になります。`,
+  ];
+}
 
 const LOCKDOWN_MAC: Paragraph = [
   'Mac で「ロックダウンモード」をオンにしている場合も WebGL は止まります。このサイトだけ対象から外す場合は、Safari の「設定」→「Web サイト」→「ロックダウンモード」で、このサイトをオフにしてください。Mac 全体の状態は「システム設定」→「プライバシーとセキュリティ」で確認できます。',
@@ -36,9 +49,9 @@ function enableSteps(browser: BrowserKind, platform: PlatformKind): Paragraph[] 
   if (platform === 'ios') {
     return [
       [
-        'iPhone や iPad では、Chrome や Firefox などを含むすべてのブラウザが、中身は Safari と同じ仕組みで表示しています。そのため、どのブラウザでも次の手順になります。',
+        'iPhone や iPad では、Chrome や Firefox などを含むすべてのブラウザが、中身は Safari と同じ仕組みで表示しています。そのため、設定する場所はブラウザではなく端末の側になります。',
       ],
-      LOCKDOWN_IOS,
+      lockdownIos(browser),
       [
         'ロックダウンモードを使っていない場合は、「設定」→「一般」→「ソフトウェアアップデート」で iOS / iPadOS を最新にし、ブラウザを一度閉じてから開き直してください。',
       ],
@@ -65,7 +78,9 @@ function enableSteps(browser: BrowserKind, platform: PlatformKind): Paragraph[] 
           ' と入力しても開けます。',
         ],
         [
-          'Brave や Vivaldi など Chrome をもとにしたブラウザも同じ手順です。アドレスの「chrome」の部分を「brave」などに読み替えてください。',
+          'Brave も同じ手順で、アドレスは ',
+          { code: 'brave://settings/system' },
+          ' です。Vivaldi など、そのほかの Chrome をもとにしたブラウザでは設定の場所が異なるので、設定画面の検索欄に「ハードウェア」と入力して探してください。',
         ],
       ];
     case 'edge':
@@ -198,6 +213,10 @@ export function WebglNotice({ failure, userAgent, maxTouchPoints }: Props) {
       tabIndex={-1}
       aria-labelledby="webgl-notice-title"
       onClose={() => setOpen(false)}
+      // 観賞ページは window の keydown でショートカット（Space で再生など）を受けている。
+      // 案内を読んでいる間に背後の再生が切り替わらないよう、ダイアログ内のキーはここで止める。
+      // 既定の動作（Space でのスクロール、Esc で閉じる、Tab の移動）は止めない
+      onKeyDown={(e) => e.stopPropagation()}
     >
       <h2 id="webgl-notice-title">3D 表示を利用できません</h2>
       <p>{LEAD}</p>

@@ -97,6 +97,30 @@ describe('<WebglNotice>', () => {
     expect(screen.getByText(/ほとんどの場合「ロックダウンモード」が理由/)).toBeInTheDocument();
     expect(screen.getByText(/端末全体のロックダウンモードは外さず/)).toBeInTheDocument();
     expect(screen.queryByText('chrome://settings/system')).not.toBeInTheDocument();
+    // iOS の Chrome にはアプリ単位の除外を案内し、Safari の「ぁあ」手順は出さない
+    expect(screen.getByText(/アプリの一覧で Chrome を除外/)).toBeInTheDocument();
+    expect(screen.queryByText(/アドレスバー左の「ぁあ」/)).not.toBeInTheDocument();
+  });
+
+  it('gives Safari on iPhone the per-site exclusion', () => {
+    render(
+      <WebglNotice
+        failure={{ kind: 'api-missing', detail: '' }}
+        userAgent={UA.safari}
+        maxTouchPoints={5}
+      />
+    );
+    expect(screen.getByText(/アドレスバー左の「ぁあ」/)).toBeInTheDocument();
+  });
+
+  it('keeps keys pressed inside the dialog from reaching page shortcuts', () => {
+    const seen: string[] = [];
+    const onKey = (e: KeyboardEvent) => seen.push(e.key);
+    window.addEventListener('keydown', onKey);
+    render(<WebglNotice failure={FAILED} userAgent={UA.chrome} maxTouchPoints={0} />);
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: ' ' });
+    window.removeEventListener('keydown', onKey);
+    expect(seen).toEqual([]);
   });
 
   it('does not suggest a desktop toggle on Android', () => {
