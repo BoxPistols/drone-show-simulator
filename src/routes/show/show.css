@@ -80,6 +80,13 @@
     -webkit-user-select: all;
     word-break: break-all;
   }
+  .webgl-notice-tech {
+    margin-top: 12px;
+    font-size: 11.5px;
+    color: rgba(255,255,255,0.55);
+  }
+  .webgl-notice-tech summary { cursor: pointer; }
+  .webgl-notice-tech code { display: inline-block; margin-top: 6px; }
   .webgl-notice-close {
     display: block;
     margin: 12px 0 0 auto;

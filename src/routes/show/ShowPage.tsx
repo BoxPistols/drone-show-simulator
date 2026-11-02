@@ -12,6 +12,7 @@ import { ProgrammeBar } from './components/ProgrammeBar';
 import { TransportBar } from './components/TransportBar';
 import { TweaksPanel } from './components/TweaksPanel';
 import { WebglNotice } from './components/WebglNotice';
+import type { WebglFailure } from './browser';
 import { useAmbientMusic } from './hooks/useAmbientMusic';
 import { type ShowHandle, useDroneShow } from './hooks/useDroneShow';
 import { CAMERA_META, nextCameraMode, pickPovDrone } from './pov';
@@ -91,7 +92,7 @@ export function ShowPage() {
   const [formationIndex, setFormationIndex] = useState(initialFormationIndex);
   const [playing, setPlaying] = useState(true);
   const [hud, setHud] = useState<HudInfo>(INITIAL_HUD);
-  const [webglUnavailable, setWebglUnavailable] = useState(false);
+  const [webglFailure, setWebglFailure] = useState<WebglFailure | null>(null);
   useEffect(() => {
     stateRef.current.playing = playing;
   }, [playing]);
@@ -149,7 +150,7 @@ export function ShowPage() {
     setAutoLite(true);
     showToast('描画が重いため、今回の表示だけ軽量モードに切り替えました（設定パネルで戻せます）');
   }, [showToast]);
-  const onUnavailable = useCallback(() => setWebglUnavailable(true), []);
+  const onUnavailable = useCallback((failure: WebglFailure) => setWebglFailure(failure), []);
 
   useDroneShow(canvasRootRef.current, {
     stateRef,
@@ -371,7 +372,7 @@ export function ShowPage() {
         TOKYO BAY ・ 35.6762°N 139.7690°E
       </div>
 
-      {webglUnavailable && <WebglNotice />}
+      {webglFailure && <WebglNotice failure={webglFailure} />}
 
       <ChromeTop stats={stats} />
       <NowPlayingCard

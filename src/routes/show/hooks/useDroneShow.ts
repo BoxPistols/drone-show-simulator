@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLatestRef } from '~/hooks/useLatestRef';
 import * as THREE from 'three';
+import { diagnoseWebglFailure, type WebglFailure } from '../browser';
 import { DRONE_COUNT, FORMATIONS, PALETTES, SKIES, TOTAL_TIME } from '~/lib/formations';
 import { makeGlowSprite } from '~/lib/glowSprite';
 import type { HudInfo, ShowState } from '../types';
@@ -20,8 +21,8 @@ interface Options {
   onHudTick: (info: HudInfo) => void;
   /** 解像度を下げ切っても間に合わないとき。軽量モードへ切り替える合図 */
   onAutoLite: () => void;
-  /** WebGL が使えないとき */
-  onUnavailable: () => void;
+  /** WebGL が使えないとき。理由の見立てを添える */
+  onUnavailable: (failure: WebglFailure) => void;
   /** スクリーンショット用の操作口 */
   handleRef: React.MutableRefObject<ShowHandle | null>;
 }
@@ -95,18 +96,34 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
     camera.position.set(160, 85, 200);
     camera.lookAt(0, 60, 0);
 
+    // canvas は自前で作って渡す。context 生成前に webglcontextcreationerror を聞いておけば、
+    // ブラウザが返す「なぜ作れなかったか」を案内に使える
+    const canvas = document.createElement('canvas');
+    let creationError = '';
+    const onCreationError = (e: Event) => {
+      creationError = (e as WebGLContextEvent).statusMessage ?? '';
+    };
+    canvas.addEventListener('webglcontextcreationerror', onCreationError);
+
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
+        canvas,
         antialias: false,
         alpha: true,
         preserveDrawingBuffer: false,
         powerPreference: 'default',
       });
     } catch (err) {
-      console.warn('useDroneShow: WebGL renderer init failed; chrome-only mode', err);
-      optsRef.current.onUnavailable();
+      const failure = diagnoseWebglFailure(
+        typeof WebGLRenderingContext !== 'undefined',
+        creationError
+      );
+      console.warn('useDroneShow: WebGL renderer init failed; chrome-only mode', failure, err);
+      optsRef.current.onUnavailable(failure);
       return;
+    } finally {
+      canvas.removeEventListener('webglcontextcreationerror', onCreationError);
     }
     renderer.setClearColor(0x000000, 0);
     canvasRoot.appendChild(renderer.domElement);

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { detectBrowser } from '../browser';
+import { detectBrowser, detectPlatform, diagnoseWebglFailure, type WebglFailure } from '../browser';
 import { WebglNotice } from './WebglNotice';
 
 const UA = {
@@ -10,7 +10,17 @@ const UA = {
   firefox: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0',
   safari:
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+  opera:
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 OPR/115.0.0.0',
+  samsung:
+    'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0.0.0 Mobile Safari/537.36',
 };
+const IPHONE_CHROME =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0.6723.90 Mobile/15E148 Safari/604.1';
+const ANDROID_CHROME =
+  'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
+
+const FAILED: WebglFailure = { kind: 'creation-failed', detail: '' };
 
 describe('detectBrowser', () => {
   it.each(Object.entries(UA))('detects %s', (kind, ua) => {
@@ -21,23 +31,95 @@ describe('detectBrowser', () => {
   });
 });
 
+describe('detectPlatform', () => {
+  it('treats every iOS browser as ios', () => {
+    expect(detectPlatform(IPHONE_CHROME)).toBe('ios');
+  });
+  it('treats iPadOS desktop-mode Safari as ios via touch points', () => {
+    expect(detectPlatform(UA.safari, 5)).toBe('ios');
+    expect(detectPlatform(UA.safari, 0)).toBe('desktop');
+  });
+  it('detects android', () => {
+    expect(detectPlatform(ANDROID_CHROME)).toBe('android');
+  });
+});
+
+describe('diagnoseWebglFailure', () => {
+  it('reports a missing API first', () => {
+    expect(diagnoseWebglFailure(false, '').kind).toBe('api-missing');
+  });
+  it('recognises Chrome blocking the page after a GPU crash', () => {
+    expect(diagnoseWebglFailure(true, 'Web page caused context loss and was blocked').kind).toBe(
+      'blocked'
+    );
+  });
+  it('recognises WebGL turned off by policy or switch', () => {
+    expect(
+      diagnoseWebglFailure(true, 'disabled by enterprise policy or commandline switch').kind
+    ).toBe('disabled');
+  });
+  it('treats anything else as a creation failure and keeps the message', () => {
+    expect(diagnoseWebglFailure(true, ' Could not create a WebGL context ')).toEqual({
+      kind: 'creation-failed',
+      detail: 'Could not create a WebGL context',
+    });
+  });
+});
+
 describe('<WebglNotice>', () => {
-  it('shows Chrome-specific steps and the safety explanation', () => {
-    render(<WebglNotice userAgent={UA.chrome} />);
-    expect(screen.getByRole('heading', { name: '3D 表示を利用できません' })).toBeInTheDocument();
+  it('shows cause, Chrome steps and the safety explanation', () => {
+    render(<WebglNotice failure={FAILED} userAgent={UA.chrome} maxTouchPoints={0} />);
+    expect(screen.getByRole('dialog', { name: '3D 表示を利用できません' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '考えられる原因' })).toBeInTheDocument();
     expect(screen.getByText('chrome://settings/system')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '有効にしても安全ですか' })).toBeInTheDocument();
   });
 
   it('shows Edge steps for Edge, not Chrome ones', () => {
-    render(<WebglNotice userAgent={UA.edge} />);
+    render(<WebglNotice failure={FAILED} userAgent={UA.edge} maxTouchPoints={0} />);
     expect(screen.getByText('edge://settings/system')).toBeInTheDocument();
     expect(screen.queryByText('chrome://settings/system')).not.toBeInTheDocument();
   });
 
+  it('shows the about:config fallback for Firefox', () => {
+    render(<WebglNotice failure={FAILED} userAgent={UA.firefox} maxTouchPoints={0} />);
+    expect(screen.getByText('webgl.disabled')).toBeInTheDocument();
+  });
+
+  it('explains Lockdown Mode on iPhone even in Chrome', () => {
+    render(
+      <WebglNotice
+        failure={{ kind: 'api-missing', detail: '' }}
+        userAgent={IPHONE_CHROME}
+        maxTouchPoints={5}
+      />
+    );
+    expect(screen.getByText(/ほとんどの場合「ロックダウンモード」が理由/)).toBeInTheDocument();
+    expect(screen.getByText(/端末全体のロックダウンモードは外さず/)).toBeInTheDocument();
+    expect(screen.queryByText('chrome://settings/system')).not.toBeInTheDocument();
+  });
+
+  it('does not suggest a desktop toggle on Android', () => {
+    render(<WebglNotice failure={FAILED} userAgent={ANDROID_CHROME} maxTouchPoints={5} />);
+    expect(
+      screen.getByText(/パソコン版のようなハードウェアアクセラレーションの切り替えはありません/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText('chrome://settings/system')).not.toBeInTheDocument();
+  });
+
+  it('includes the browser message in the technical details', () => {
+    render(
+      <WebglNotice
+        failure={{ kind: 'blocked', detail: 'Web page caused context loss and was blocked' }}
+        userAgent={UA.chrome}
+        maxTouchPoints={0}
+      />
+    );
+    expect(screen.getByText(/blocked \/ desktop \/ chrome \/ Web page caused/)).toBeInTheDocument();
+  });
+
   it('can be closed', () => {
-    render(<WebglNotice userAgent={UA.chrome} />);
-    expect(screen.getByRole('dialog', { name: '3D 表示を利用できません' })).toBeInTheDocument();
+    render(<WebglNotice failure={FAILED} userAgent={UA.chrome} maxTouchPoints={0} />);
     fireEvent.click(screen.getByRole('button', { name: '閉じる' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
