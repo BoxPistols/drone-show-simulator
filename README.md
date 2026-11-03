@@ -15,6 +15,7 @@
 
 ## 見どころ
 
+- **機体を指定して、その機体の目線で見る / 最大 4 機を同時に見る**: 3D 画面の点をクリック（タップ）するか ID を入力して乗る機体を選び、機体管理の詳細から「この機体の視点で見る」で直接開ける（`?pov=AS-042` で共有可）。他の機体の目線は小窓で最大 4 つ（スマートフォンは 2 つ）同時に表示し、WebGL の context は 1 つのまま render target と scissor で描く。重いときは本体より先に小窓の更新を間引き、数を減らす — 選択 [`picking.ts`](src/routes/show/picking.ts)、小窓の配置と間引き [`pip.ts`](src/routes/show/pip.ts)、ID の対応 [`src/lib/droneId.ts`](src/lib/droneId.ts)（いずれも単体テスト済み）、描画 [`useDroneShow.ts`](src/routes/show/hooks/useDroneShow.ts)
 - **非力な端末でも止まらない適応品質**: フレーム時間を測って解像度を 1.5 倍から 0.75 倍まで自動で下げ、それでも遅ければ軽量モードへ切り替える — [`src/routes/show/hooks/resolution.ts`](src/routes/show/hooks/resolution.ts)（判定ロジックは単体テスト済み）、描画本体は [`useDroneShow.ts`](src/routes/show/hooks/useDroneShow.ts)
 - **機体どうしの最小距離を保証する演目生成**: 9 演目の座標を純粋関数で作り、全演目で機体間 1.5m 以上をテストで確かめている — [`src/lib/formations.ts`](src/lib/formations.ts) / [`formations.test.ts`](src/lib/formations.test.ts)
 - **CSP とテストで守る配信**: CSP `script-src 'self'` などのセキュリティヘッダ（[`vercel.json`](vercel.json)）、Vitest の単体テストと Playwright + axe の E2E / アクセシビリティ検査を CI で毎 PR 実行（[`.github/workflows/test.yml`](.github/workflows/test.yml)、[`e2e/`](e2e/)）
@@ -39,11 +40,13 @@ pnpm dev       # http://localhost:8080
 - 演目: 球体 → 単螺旋 → 円環 → 波紋 → **熊 (Rilakkuma-ish)** → 二重螺旋 → 立方体 → 心臓 → **銀河 (フィナーレ)**
 - 下から見上げる斜めカメラデフォルト、マウスドラッグ / ホイールでオービット
 - **視点**: 観客（ドラッグ回転 / ホイール・ピンチで距離）、**機体目線**（機体のカメラから編隊を見る。ドラッグで見回し、ホイール・ピンチで画角。「別の機体へ」で乗り換え）、**360°**（編隊のまわりを 20 秒で一周しつつ高さと距離がゆるく揺れる）
+- **機体の指定**: 点をクリック / タップでその機体に乗る（ドラッグとは区別）。マウスを乗せると機体 ID の札が出る。設定パネルの「機体を指定」に `AS-123` や `123` を入力しても乗れる（↑↓ で ID を送る）
+- **小窓（PiP）**: 他の機体の目線を最大 4 つ同時に表示（480px 以下は 2 つ）。Shift + クリックか「小窓に追加」で足し、小窓を押すとメインと入れ替わる。各小窓に機体 ID と座標を文字でも出す。軽量モードでは出さない
 - **アンビエント音楽**: 音源ファイルを持たず Web Audio で生成（パッド + 風 + 鈴 + ステレオディレイ）。ON/OFF と音量、演目ごとに和音が移る。初めて ON にしたときだけコードを読み込む
-- キーボード: `Space` 再生, `←→` 演目, `1-9` ジャンプ, `+-` 速度, `C` 視点切替, `V` 別の機体の目線, `M` 音楽, `F` 全画面, `S` スクリーンショット, `T` 設定, `?` ヘルプ, `Esc` 閉じる
+- キーボード: `Space` 再生, `←→` 演目, `1-9` ジャンプ, `+-` 速度, `C` 視点切替, `V` 別の機体の目線, `[` `]` ID が前 / 次の機体, `M` 音楽, `F` 全画面, `S` スクリーンショット, `T` 設定, `?` ヘルプ, `Esc` 閉じる
 - タッチ: ドラッグで回転、ピンチで距離。設定パネルはトランスポートの歯車ボタンから（キーボード無しでも開ける）
 - **軽量モード** (設定パネル): 解像度上限 1 倍・残像なし・星半減。描画が間に合わない端末では自動で切り替わる
-- `?f=<0..8>&speed=<n>` で URL deep-link、localStorage で設定永続化
+- `?f=<0..8>&speed=<n>` で URL deep-link、`?pov=AS-042&pip=AS-010,AS-200` で機体目線と小窓を共有（操作に合わせて URL も書き換わる）、localStorage で設定永続化
 
 ### 振付エディタ (`/choreography`)
 - 演目の **追加 / 複製 / 削除 / ↑↓ 並び替え** + undo/redo (`Cmd/Ctrl+Z`, `Y`)
@@ -56,7 +59,7 @@ pnpm dev       # http://localhost:8080
 - **機体書出**: 実機連携用 flightpath JSON (schema `astra-flock-flightpath/1`)
 
 ### 運用 (`/fleet`, `/schedule`)
-- Fleet: 660 機 roster + 詳細 drawer + 4 アクション (test/recalibrate/log/maint), grid/table 切替
+- Fleet: 660 機 roster + 詳細 drawer + 4 アクション (test/recalibrate/log/maint), grid/table 切替。drawer の「この機体の視点で見る」で観賞ページをその機体の目線で開く（機体 ID と点群の番号の対応は `src/lib/droneId.ts` に一本化）
 - Schedule: 月カレンダー + イベント drawer + pre-flight state サマリ + checklist
 
 ---
@@ -117,6 +120,7 @@ src/
 - 半透明の UI に `backdrop-filter`（ぼかし）は使わない。動き続ける canvas の上では毎フレームぼかし直しになり、非力な GPU で最も重い処理になる
 - HUD の更新は 5 回/秒、各オーバーレイは `memo` 化し、tick ごとにページ全体を描き直さない
 - 機体目線では点の大きさに上限（頂点シェーダ）を設け、カメラの隣の機体が画面いっぱいの光にならないようにする
+- 小窓（他の機体の目線）は WebGL の context を増やさず、同じ renderer で各小窓の render target に描いてから scissor / viewport で貼る。重いときは「小窓の更新を 2〜3 フレームに 1 回へ間引く → 小窓を 1 つずつ減らす → 本体の解像度を下げる → 軽量モード」の順に落とす（`pip.ts` の `createPipBudget`、単体テスト済み）。軽量モードでは小窓を出さない
 - 音楽は音源ファイルを持たず Web Audio のノード十数個で生成する（音声スレッドで動き、JS は数秒に一度鈴を鳴らすだけ）。AudioContext は利用者の操作の中で作り、タブが隠れたら止める
 
 **振付エディタ**
@@ -145,9 +149,9 @@ src/
 | `pnpm lint` | ESLint (`--max-warnings=0`) |
 | `pnpm lint:fix` | ESLint + autofix |
 | `pnpm format` / `format:check` | Prettier |
-| `pnpm test` | Vitest (176 件, ~3s) |
+| `pnpm test` | Vitest (219 件, ~3s) |
 | `pnpm test:watch` / `test:coverage` | watch / カバレッジ |
-| `pnpm test:e2e` | Playwright E2E (24 件, chromium) |
+| `pnpm test:e2e` | Playwright E2E (29 件, chromium) |
 | `pnpm test:e2e:install` | chromium ブラウザ初回取得 |
 | `pnpm test:e2e:ui` | Playwright UI モード |
 | `pnpm replay <file>` | flightpath JSON の CLI 再生デモ |
