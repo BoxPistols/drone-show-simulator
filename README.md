@@ -1,14 +1,34 @@
-# Astra Flock — Drone Show
+# Astra Flock — Drone Show / 星群
 
-> **星群** — A flock of 660 artificial stars.
+ドローンの多数機管理の実験です。660 機の編隊をブラウザで描画し、機体ごとの状態管理、振り付け、運航スケジュールまでを 1 つのアプリで試しています。作者のドローン関連プロジェクトで、多数の機体をまとめて扱う画面と仕組みを検証する場として作っています。
 
-東京湾の夜空に 660 機のドローンで 9 演目を描く、Three.js ベースの観賞ビューアと
-振付エディタ。Vite + React + TypeScript の SPA。
+- **観賞** (`/`): 660 機 × 9 演目の編隊を Three.js の点群で描画。観客・機体目線・360° の視点
+- **機体管理** (`/fleet`): 660 機の一覧（状態・電池・ファームウェア・本日の配置）と機体ごとの詳細。データは乱数の種を固定した模擬データ
+- **振付** (`/choreography`): 演目の編集と、機体ごとの飛行経路 JSON の書き出し
+- **運航スケジュール** (`/schedule`): 公演・予行・整備の月カレンダーと飛行前チェックリスト（模擬データ）
 
-**本番**: https://drone-show-astra-flock.vercel.app  
-(`drone-show-simulator.vercel.app` は alias、307 redirect)
+**デモ: https://drone-show-astra-flock.vercel.app/**
 
-![OG](og-image.png)
+[![test](https://github.com/BoxPistols/drone-show-simulator/actions/workflows/test.yml/badge.svg)](https://github.com/BoxPistols/drone-show-simulator/actions/workflows/test.yml)
+
+![観賞画面: 660 機が球体を描いている](docs/images/show-sphere.jpg)
+
+## 見どころ
+
+- **非力な端末でも止まらない適応品質**: フレーム時間を測って解像度を 1.5 倍から 0.75 倍まで自動で下げ、それでも遅ければ軽量モードへ切り替える — [`src/routes/show/hooks/resolution.ts`](src/routes/show/hooks/resolution.ts)（判定ロジックは単体テスト済み）、描画本体は [`useDroneShow.ts`](src/routes/show/hooks/useDroneShow.ts)
+- **機体どうしの最小距離を保証する演目生成**: 9 演目の座標を純粋関数で作り、全演目で機体間 1.5m 以上をテストで確かめている — [`src/lib/formations.ts`](src/lib/formations.ts) / [`formations.test.ts`](src/lib/formations.test.ts)
+- **CSP とテストで守る配信**: CSP `script-src 'self'` などのセキュリティヘッダ（[`vercel.json`](vercel.json)）、Vitest の単体テストと Playwright + axe の E2E / アクセシビリティ検査を CI で毎 PR 実行（[`.github/workflows/test.yml`](.github/workflows/test.yml)、[`e2e/`](e2e/)）
+
+## クイックスタート
+
+```bash
+pnpm install   # Node 22+ / pnpm
+pnpm dev       # http://localhost:8080
+```
+
+ビルド・テストのコマンドは [開発コマンド](#開発コマンド) を参照。
+
+`drone-show-simulator.vercel.app` は旧 URL で、上記デモへ 307 redirect します。
 
 ---
 
@@ -38,25 +58,6 @@
 ### 運用 (`/fleet`, `/schedule`)
 - Fleet: 660 機 roster + 詳細 drawer + 4 アクション (test/recalibrate/log/maint), grid/table 切替
 - Schedule: 月カレンダー + イベント drawer + pre-flight state サマリ + checklist
-
----
-
-## クイックスタート
-
-```bash
-# 依存インストール (pnpm 必須、Node 22+)
-pnpm install
-
-# 開発サーバー (Vite, HMR)
-pnpm dev
-# → http://localhost:8080
-
-# 本番ビルド (dist/)
-pnpm build
-
-# プレビュー (build 後)
-pnpm preview
-```
 
 ---
 
@@ -169,13 +170,14 @@ Vitest / E2E は CI 側で担保。
 
 ---
 
-## ハンドオフ元
+## 開発プロセス: Claude Design → Claude Code
 
-Claude Design (claude.ai/design) で HTML/CSS/JS プロトタイプとして作成されたものを、React SPA として再実装。デザインの意図・使い方は [`HANDOFF-README.md`](./HANDOFF-README.md) を参照。
+- **デザイン**: Claude Design (claude.ai/design) で HTML/CSS/JS のプロトタイプとして作成し、ハンドオフ用の指示書付きで書き出した。指示書は [`docs/claude-design-handoff.md`](docs/claude-design-handoff.md) に保存している（プロトタイプ本体は React 化の完了後に #46 で削除）
+- **実装**: Claude Code でプロトタイプを動かしたまま段階的に置き換えた。Vite + TypeScript の土台（#31）→ 共通 UI（#39）→ 観賞・振付・機体・運航の各ページ（#40–#43）→ Playwright + axe の E2E（#44）→ pre-commit と CI（#45）→ SPA としてのデプロイ切替（#46）。1 段階 1 PR で進めた
+- **記録**: main の 59 コミット中 57 件に Claude の Co-Authored-By が付いている（`git log` で確認可能）。人は方針の決定・レビュー・マージを担当
 
-## ライセンス / クレジット
+## ライセンス
 
-- Three.js (MIT) / React / React-DOM / React Router (MIT)
-- Poppins / Shippori Mincho (Google Fonts, OFL)
+All rights reserved. ポートフォリオとして閲覧用に公開しています。GitHub 上での閲覧はできますが、コードの使用・複製・改変・再配布・転用は、事前の書面による許可がない限り禁止です。詳細は [`LICENSE`](LICENSE)。連絡先: https://asagiri-design.carrd.co/
 
-本リポジトリ自体は内部 PoC。外部配布時はライセンス明記要。
+利用している外部ライブラリ（Three.js、React、React Router）とフォント（Poppins、Shippori Mincho / Google Fonts）には、それぞれのライセンスが適用されます。

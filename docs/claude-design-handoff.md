@@ -1,3 +1,6 @@
+> このファイルは、Claude Design (claude.ai/design) がハンドオフ時に書き出した指示書をそのまま保存したものです。
+> 文中の `drone-show/project/` のプロトタイプは React への置き換えが終わった後に削除しており、このリポジトリには含まれていません（#46）。
+
 # CODING AGENTS: READ THIS FIRST
 
 This is a **handoff bundle** from Claude Design (claude.ai/design).
