@@ -602,6 +602,233 @@
     font-size: 14px;
     line-height: 1;
   }
+  /* 機体の切り替えは指でも押すので、ここの操作は 44px 四方を確保する */
+  .view-pill button,
+  .view-pill .vp-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .view-pill .vp-step {
+    padding: 0;
+    font-size: 18px;
+    line-height: 1;
+  }
+  .view-pill button:focus-visible {
+    outline: 2px solid var(--color-moonstone);
+    outline-offset: 2px;
+  }
+
+  /* 機体 ID の札。useDroneShow が点の位置へ幅 0 の要素を動かし、輪と文字はそこからずらして描く */
+  .drone-labels {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .drone-label {
+    position: absolute;
+    left: 0; top: 0;
+    width: 0; height: 0;
+    will-change: transform;
+  }
+  .drone-label::before {
+    content: "";
+    position: absolute;
+    left: -9px; top: -9px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.85);
+  }
+  .drone-label::after {
+    content: attr(data-id);
+    position: absolute;
+    left: 12px; top: -26px;
+    padding: 2px 6px;
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 4px;
+    background: rgba(2,3,10,0.86);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .drone-label.pip::before { border-color: var(--color-moonstone); }
+  .drone-label.pip::after { border-color: rgba(49,169,199,0.7); }
+
+  /* 小窓。映像は canvas の同じ位置に描かれているので、ここは枠と文字と操作だけ */
+  .pip-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 12;
+    pointer-events: none;
+  }
+  .pip-frame {
+    position: absolute;
+    border: 1px solid var(--hair-2);
+    border-radius: 6px;
+    pointer-events: auto;
+  }
+  .pip-main {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 6px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+  }
+  .pip-main:hover { box-shadow: inset 0 0 0 1px rgba(49,169,199,0.7); }
+  .pip-main:focus-visible,
+  .pip-close:focus-visible {
+    outline: 2px solid var(--color-moonstone);
+    outline-offset: 2px;
+  }
+  .pip-id,
+  .pip-coords {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(2,3,10,0.82);
+    color: #fff;
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .pip-id { font-size: 11px; }
+  .pip-coords {
+    font-size: 10px;
+    color: rgba(255,255,255,0.82);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pip-close {
+    position: absolute;
+    top: 0; right: 0;
+    width: 44px; height: 44px;
+    display: grid; place-items: center;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .pip-close span {
+    display: grid; place-items: center;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: rgba(2,3,10,0.82);
+    border: 1px solid var(--hair-2);
+  }
+  .pip-close:hover span { background: rgba(239,68,68,0.3); }
+
+  /* 機体の指定（設定パネルの視点の欄） */
+  .tw-picker { margin-top: 12px; }
+  .tw-picker-label {
+    display: block;
+    font-size: 12px;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 6px;
+  }
+  .tw-picker-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--hair-2);
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 16px; /* iOS は 16px 未満だと入力時に拡大する */
+    letter-spacing: 0.06em;
+  }
+  .tw-picker-input::placeholder { color: rgba(255,255,255,0.45); }
+  .tw-picker-input:focus-visible {
+    outline: 2px solid var(--color-moonstone);
+    outline-offset: 1px;
+  }
+  .tw-picker-input[aria-invalid="true"] { border-color: #f87171; }
+  .tw-picker-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .tw-picker-btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--hair-2);
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.88);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .tw-picker-btn:hover:not(:disabled) { background: rgba(49,169,199,0.14); color: #fff; }
+  .tw-picker-btn.primary {
+    background: var(--color-moonstone);
+    border-color: var(--color-moonstone);
+    color: #02030a;
+    font-weight: 500;
+  }
+  .tw-picker-btn.primary:hover { filter: brightness(1.08); background: var(--color-moonstone); color: #02030a; }
+  .tw-picker-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .tw-picker-btn:focus-visible {
+    outline: 2px solid var(--color-moonstone);
+    outline-offset: 2px;
+  }
+  .tw-picker-btn.icon { padding: 0; font-size: 16px; }
+  .tw-picker-help {
+    margin: 6px 0 0;
+    font-size: 11px;
+    line-height: 1.55;
+    color: rgba(255,255,255,0.66);
+  }
+  .tw-picker-error {
+    margin: 4px 0 0;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #fca5a5;
+  }
+  .tw-picker-error:empty { display: none; }
+  .tw-pip-head { margin-top: 14px; }
+  .tw-pip-notice {
+    margin: 0 0 8px;
+    padding: 6px 8px;
+    border: 1px solid rgba(251,191,36,0.45);
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #fde68a;
+  }
+  .tw-pip-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .tw-pip-list li {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 6px;
+  }
+  .tw-pip-id {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: #fff;
+    letter-spacing: 0.06em;
+  }
   .tw-cameras {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

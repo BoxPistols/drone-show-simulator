@@ -351,6 +351,22 @@
   .drw-btn.primary { background: var(--moon); color: #02030a; border-color: var(--moon); font-weight: 500; }
   .drw-btn.primary:hover { filter: brightness(1.08); }
   .drw-btn.danger:hover { background: rgba(239,68,68,0.15); border-color: var(--err); color: var(--err); }
+  /* 観賞ページへ移る導線。他の操作（模擬）と違い実際に画面が変わるので、詳細の先頭に大きく置く */
+  .drw-pov {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 16px;
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #fff;
+    text-decoration: none;
+    border-color: var(--moon);
+    background: rgba(49,169,199,0.12);
+  }
+  .drw-pov-sub { font-size: 11px; color: var(--text-2); letter-spacing: 0.02em; }
+  .drw-pov:focus-visible, .drw-btn:focus-visible { outline: 2px solid var(--moon); outline-offset: 2px; }
 
   .maint-log {
     font-family: var(--mono);

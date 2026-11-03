@@ -19,6 +19,13 @@ function renderPanel(over: Partial<React.ComponentProps<typeof TweaksPanel>> = {
     onCameraChange: vi.fn(),
     onNextPov: vi.fn(),
     onVolumeChange: vi.fn(),
+    pips: [] as number[],
+    maxPips: 4,
+    pipNotice: null,
+    onRide: vi.fn(),
+    onAddPip: vi.fn(),
+    onRemovePip: vi.fn(),
+    onPromotePip: vi.fn(),
     ...over,
   };
   return { ...render(<TweaksPanel {...props} />), props };
