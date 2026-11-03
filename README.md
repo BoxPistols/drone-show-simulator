@@ -166,6 +166,18 @@ Vitest / E2E は CI 側で担保。
 
 ---
 
+## 紹介動画
+
+約 34 秒の紹介動画を [Remotion](https://www.remotion.dev/) で作っています（`video/`）。
+アプリとは別パッケージで、ビルドや CI には含まれません。点群はアプリの `src/lib/formations.ts` の座標をそのまま使います。
+
+```bash
+cd video && pnpm install && pnpm render
+# → video/out/astra-flock-intro.mp4
+```
+
+詳しくは [`video/README.md`](./video/README.md)。
+
 ## CI
 
 `.github/workflows/test.yml` (push to main / 全 pull_request):
@@ -184,4 +196,4 @@ Vitest / E2E は CI 側で担保。
 
 All rights reserved. ポートフォリオとして閲覧用に公開しています。GitHub 上での閲覧はできますが、コードの使用・複製・改変・再配布・転用は、事前の書面による許可がない限り禁止です。詳細は [`LICENSE`](LICENSE)。連絡先: https://asagiri-design.carrd.co/
 
-利用している外部ライブラリ（Three.js、React、React Router）とフォント（Poppins、Shippori Mincho / Google Fonts）には、それぞれのライセンスが適用されます。
+利用している外部ライブラリ（Three.js、React、React Router）とフォント（Poppins、Shippori Mincho / Google Fonts）には、それぞれのライセンスが適用されます。紹介動画（`video/`）で使う Remotion には独自のライセンスがあり、従業員 4 人以上の会社で使う場合は有償のライセンスが必要です（[Remotion のライセンス](https://www.remotion.dev/license)）。動画に同梱した Noto Sans JP は SIL Open Font License 1.1 です。

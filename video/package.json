@@ -1,0 +1,26 @@
+{
+  "name": "astra-flock-video",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Astra Flock の紹介動画（Remotion）",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "capture": "node scripts/capture.mjs",
+    "fonts": "node scripts/fonts.mjs",
+    "render": "remotion render src/index.ts Intro out/astra-flock-intro.mp4",
+    "still": "remotion still src/index.ts Intro out/poster.png --frame=90",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.537",
+    "@remotion/fonts": "4.0.537",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.537"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.18",
+    "typescript": "5.7.3"
+  }
+}
