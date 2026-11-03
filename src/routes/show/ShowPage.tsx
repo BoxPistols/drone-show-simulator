@@ -423,7 +423,7 @@ export function ShowPage() {
   const maxPips = maxPipsFor({ lite: effectiveLite, width: viewport.w });
   const pipViews = useMemo<readonly PipView[]>(() => {
     const wanted = pipList.slice(0, maxPips);
-    if (wanted.length === 0 || webglUnavailable) return NO_PIPS;
+    if (wanted.length === 0 || webglFailure !== null) return NO_PIPS;
     const rects = pipLayout({
       width: viewport.w,
       height: viewport.h,
@@ -431,7 +431,7 @@ export function ShowPage() {
       tweaksOpen,
     });
     return rects.map((rect, k) => ({ index: wanted[k]!, rect }));
-  }, [pipList, maxPips, viewport.w, viewport.h, tweaksOpen, webglUnavailable]);
+  }, [pipList, maxPips, viewport.w, viewport.h, tweaksOpen, webglFailure]);
   useEffect(() => {
     stateRef.current.pips = pipViews;
   }, [pipViews]);
