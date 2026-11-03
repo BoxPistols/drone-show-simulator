@@ -37,6 +37,10 @@ test.describe('Show page keyboard shortcuts', () => {
     await expect(lite).toHaveAttribute('aria-checked', 'false');
     await lite.click();
     await expect(lite).toHaveAttribute('aria-checked', 'true');
+    // 保存は描画後の effect で行われるので、書き込みを待ってから再読み込みする
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem('astra-flock-prefs') ?? ''))
+      .toContain('"lite":true');
 
     await page.reload();
     await page.getByRole('button', { name: /演出設定/ }).click();
