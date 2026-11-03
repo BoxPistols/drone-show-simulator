@@ -2,8 +2,9 @@
   "name": "drone-show-simulator",
   "version": "0.2.0",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
-  "description": "Astra Flock — 660-drone Three.js point-cloud show + choreography editor",
+  "description": "Astra Flock — multi-drone fleet management experiment: 660-drone formation rendering, per-drone fleet view, choreography and schedule",
   "packageManager": "pnpm@10.14.0",
   "engines": {
     "node": ">=22"

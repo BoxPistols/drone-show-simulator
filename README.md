@@ -1,6 +1,11 @@
 # Astra Flock — Drone Show / 星群
 
-660 機のドローンで夜空に 9 つの演目を描くショーを、ブラウザだけで観賞し、振り付け、機体ごとの飛行経路として書き出せる Three.js アプリです。
+ドローンの多数機管理の実験です。660 機の編隊をブラウザで描画し、機体ごとの状態管理、振り付け、運航スケジュールまでを 1 つのアプリで試しています。作者のドローン関連プロジェクトで、多数の機体をまとめて扱う画面と仕組みを検証する場として作っています。
+
+- **観賞** (`/`): 660 機 × 9 演目の編隊を Three.js の点群で描画。観客・機体目線・360° の視点
+- **機体管理** (`/fleet`): 660 機の一覧（状態・電池・ファームウェア・本日の配置）と機体ごとの詳細。データは乱数の種を固定した模擬データ
+- **振付** (`/choreography`): 演目の編集と、機体ごとの飛行経路 JSON の書き出し
+- **運航スケジュール** (`/schedule`): 公演・予行・整備の月カレンダーと飛行前チェックリスト（模擬データ）
 
 **デモ: https://drone-show-astra-flock.vercel.app/**
 
@@ -171,9 +176,8 @@ Vitest / E2E は CI 側で担保。
 - **実装**: Claude Code でプロトタイプを動かしたまま段階的に置き換えた。Vite + TypeScript の土台（#31）→ 共通 UI（#39）→ 観賞・振付・機体・運航の各ページ（#40–#43）→ Playwright + axe の E2E（#44）→ pre-commit と CI（#45）→ SPA としてのデプロイ切替（#46）。1 段階 1 PR で進めた
 - **記録**: main の 59 コミット中 57 件に Claude の Co-Authored-By が付いている（`git log` で確認可能）。人は方針の決定・レビュー・マージを担当
 
-## ライセンス / クレジット
+## ライセンス
 
-- Three.js (MIT) / React / React-DOM / React Router (MIT)
-- Poppins / Shippori Mincho (Google Fonts, OFL)
+All rights reserved. ポートフォリオとして閲覧用に公開しています。GitHub 上での閲覧はできますが、コードの使用・複製・改変・再配布・転用は、事前の書面による許可がない限り禁止です。詳細は [`LICENSE`](LICENSE)。連絡先: https://asagiri-design.carrd.co/
 
-本リポジトリ自体は内部 PoC。外部配布時はライセンス明記要。
+利用している外部ライブラリ（Three.js、React、React Router）とフォント（Poppins、Shippori Mincho / Google Fonts）には、それぞれのライセンスが適用されます。
