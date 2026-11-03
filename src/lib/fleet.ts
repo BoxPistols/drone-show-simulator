@@ -1,3 +1,4 @@
+import { droneIdFromIndex } from '~/lib/droneId';
 import { FLEET } from '~/lib/formations';
 import { prng } from '~/lib/prng';
 
@@ -56,7 +57,7 @@ export function generateFleet(): Drone[] {
 
   for (let i = 0; i < FLEET.total; i++) {
     const rr = prng(i * 7 + 1);
-    const id = `AS-${String(i + 1).padStart(3, '0')}`;
+    const id = droneIdFromIndex(i);
     const status = statusDist[i] ?? 'active';
     const bat =
       status === 'maint'
