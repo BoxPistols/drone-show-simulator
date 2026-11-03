@@ -23,5 +23,5 @@ src/routes/choreography/choreography.css
 src/routes/fleet/fleet.css
 src/routes/schedule/schedule.css
 README.md
-HANDOFF-README.md
+docs/claude-design-handoff.md
 vercel.json

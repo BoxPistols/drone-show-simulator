@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://drone-show-astra-flock.vercel.app/sitemap.xml
