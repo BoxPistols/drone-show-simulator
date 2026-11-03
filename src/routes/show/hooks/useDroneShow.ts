@@ -1,10 +1,13 @@
 import { useEffect } from 'react';
 import { useLatestRef } from '~/hooks/useLatestRef';
 import * as THREE from 'three';
+import { droneIdFromIndex } from '~/lib/droneId';
 import { diagnoseWebglFailure, type WebglFailure } from '../browser';
 import { DRONE_COUNT, FORMATIONS, PALETTES, SKIES, TOTAL_TIME } from '~/lib/formations';
 import { makeGlowSprite } from '~/lib/glowSprite';
-import type { HudInfo, ShowState } from '../types';
+import { isTap, pickNearestPoint, pickRadiusFor, projectPoint } from '../picking';
+import { createPipBudget, type PipRect, shouldUpdatePip } from '../pip';
+import type { DroneCoord, HudInfo, ShowState } from '../types';
 import { createResolutionController } from './resolution';
 
 export interface ShowHandle {
@@ -25,6 +28,22 @@ interface Options {
   onUnavailable: (failure: WebglFailure) => void;
   /** スクリーンショット用の操作口 */
   handleRef: React.MutableRefObject<ShowHandle | null>;
+  /** 3D 画面の点をクリック / タップしたとき。`add` は Shift を押していたか（小窓に追加） */
+  onPickDrone: (index: number, opts: { add: boolean }) => void;
+  /** 負荷に応じて小窓の間引きの段が変わったとき（数と更新間隔は pipLevel() で求める） */
+  onPipLevel: (level: number) => void;
+  /** 小窓の機体の現在位置。HUD と同じ約 5 回/秒、小窓があるときだけ */
+  onPipCoords: (coords: DroneCoord[]) => void;
+}
+
+/** 1 つの小窓の描画資源。小窓は本体と同じ renderer で、別の render target に描いてから貼り付ける */
+interface PipSlot {
+  index: number;
+  rect: PipRect;
+  cam: THREE.PerspectiveCamera;
+  target: THREE.WebGLRenderTarget;
+  /** 次のフレームで必ず描き直す（追加直後・大きさが変わった直後） */
+  dirty: boolean;
 }
 
 const DISC_SIZE = 64;
@@ -46,14 +65,18 @@ const MAX_POINT_PX = 56;
 
 /**
  * three の PointsMaterial は距離に反比例して点を大きくする。機体目線でカメラの 1〜2m 隣にいる機体は
- * 画面いっぱいの光の塊になるので、頂点シェーダに上限を足す
+ * 画面いっぱいの光の塊になるので、頂点シェーダに上限を足す。
+ * 上限は uniform にして、小さな小窓へ描くときだけ縮める（小窓では同じ 56px が画面の大半を覆うため）
  */
-function clampPointSize(mat: THREE.PointsMaterial) {
+function clampPointSize(mat: THREE.PointsMaterial, maxPointPx: { value: number }) {
   mat.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader.replace(
-      'if ( isPerspective ) gl_PointSize *= ( scale / - mvPosition.z );',
-      `if ( isPerspective ) gl_PointSize = min( gl_PointSize * ( scale / - mvPosition.z ), ${MAX_POINT_PX.toFixed(1)} );`
-    );
+    shader.uniforms.maxPointPx = maxPointPx;
+    shader.vertexShader =
+      'uniform float maxPointPx;\n' +
+      shader.vertexShader.replace(
+        'if ( isPerspective ) gl_PointSize *= ( scale / - mvPosition.z );',
+        'if ( isPerspective ) gl_PointSize = min( gl_PointSize * ( scale / - mvPosition.z ), maxPointPx );'
+      );
   };
 }
 
@@ -136,10 +159,15 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       performance.now()
     );
     let dpr = resolution.dpr;
+    /** 描画領域の CSS ピクセル。小窓の位置（左上原点）を WebGL の座標（左下原点）に直すのに使う */
+    let viewW = window.innerWidth;
+    let viewH = window.innerHeight;
     const applySize = () => {
+      viewW = window.innerWidth;
+      viewH = window.innerHeight;
       renderer.setPixelRatio(dpr);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      camera.aspect = window.innerWidth / window.innerHeight;
+      renderer.setSize(viewW, viewH);
+      camera.aspect = viewW / viewH;
       camera.updateProjectionMatrix();
     };
     applySize();
@@ -193,7 +221,8 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       blending: THREE.AdditiveBlending,
       sizeAttenuation: true,
     });
-    clampPointSize(droneMat);
+    const pointClamp = { value: MAX_POINT_PX };
+    clampPointSize(droneMat, pointClamp);
     const dronePoints = new THREE.Points(droneGeom, droneMat);
     dronePoints.frustumCulled = false;
     scene.add(dronePoints);
@@ -212,13 +241,38 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
-    clampPointSize(trailMat);
+    clampPointSize(trailMat, pointClamp);
     const trailPoints = new THREE.Points(trailGeom, trailMat);
     trailPoints.frustumCulled = false;
     trailPoints.visible = false;
     scene.add(trailPoints);
     let trailIdx = 0;
     let trailFilled = false;
+
+    // ---- 機体 ID の札（マウスを乗せた機体と、小窓で見ている機体） ----
+    // 点群の上に DOM で重ねる。位置は描画のたびに投影し直す。同じ情報は画面の操作部品にもあるので読み上げからは外す
+    const labelLayer = document.createElement('div');
+    labelLayer.className = 'drone-labels';
+    labelLayer.setAttribute('aria-hidden', 'true');
+    canvasRoot.appendChild(labelLayer);
+    const labelPool: HTMLDivElement[] = [];
+    const viewProj = new THREE.Matrix4();
+
+    // ---- 小窓 ----
+    const pipSlots: PipSlot[] = [];
+    const pipBudget = createPipBudget({}, performance.now());
+    let pipFrame = 0;
+    let lastPipViews: ShowState['pips'] | null = null;
+    let lastPipAllowed = -1;
+    let lastPipDpr = dpr;
+    const pipLook = new THREE.Vector3();
+    const pipHost = new THREE.Vector3();
+    // render target を画面に貼るための板。正射影で全面に 1 枚だけ描く
+    const blitCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const blitMat = new THREE.MeshBasicMaterial({ depthTest: false, depthWrite: false });
+    const blitQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), blitMat);
+    const blitScene = new THREE.Scene();
+    blitScene.add(blitQuad);
 
     // ---- 機体ごとの物理状態 ----
     const velBuf = new Float32Array(DRONE_COUNT * 3);
@@ -325,6 +379,20 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
     };
     /** 機体目線の見回し（ヨー / ピッチ）と画角 */
     const pov = { yaw: 0, pitch: 0, fov: FOV_DRONE, rFov: FOV_DRONE, idx: -1 };
+    /** クリック / タップの判定。canvas の上で押されたときだけ作る */
+    let tap: {
+      x: number;
+      y: number;
+      t: number;
+      maxMove: number;
+      type: string;
+      multi: boolean;
+    } | null = null;
+    /** ボタンを押していないマウスの位置。描画のついでに近い機体を探して札を出す */
+    let hoverPt: { x: number; y: number } | null = null;
+    let hoverIdx = -1;
+    let hoverDirty = false;
+    let labelsDirty = false;
     const camPos = new THREE.Vector3();
     const camLook = new THREE.Vector3(0, 60, 0);
     const centroid = new THREE.Vector3();
@@ -345,8 +413,39 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       const [a, b] = [...pointers.values()];
       return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
     };
+    /** 画面上の (x, y) に近い機体。機体目線のときは乗っている機体を除く */
+    const pickAt = (x: number, y: number, pointerType: string) => {
+      camera.updateMatrixWorld();
+      viewProj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      const r = el.getBoundingClientRect();
+      return pickNearestPoint(
+        posBuf,
+        viewProj.elements,
+        r.width,
+        r.height,
+        x - r.left,
+        y - r.top,
+        pickRadiusFor(pointerType),
+        isDroneCam() ? hiddenIdx : -1
+      );
+    };
+
     const onPointerDown = (e: PointerEvent) => {
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size === 1) {
+        tap = {
+          x: e.clientX,
+          y: e.clientY,
+          t: performance.now(),
+          maxMove: 0,
+          type: e.pointerType,
+          multi: false,
+        };
+        hoverPt = null;
+        hoverDirty = true;
+      } else if (tap) {
+        tap.multi = true;
+      }
       if (pointers.size === 1) {
         orbit.dragging = true;
         orbit.px = e.clientX;
@@ -358,7 +457,24 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       }
     };
     const onPointerUp = (e: PointerEvent) => {
+      const t = tap;
+      const tapped =
+        t !== null &&
+        e.type === 'pointerup' &&
+        pointers.size === 1 &&
+        pointers.has(e.pointerId) &&
+        isTap({
+          maxMove: t.maxMove,
+          durationMs: performance.now() - t.t,
+          pointerType: t.type,
+          multiTouch: t.multi,
+        });
       pointers.delete(e.pointerId);
+      if (pointers.size === 0) tap = null;
+      if (tapped) {
+        const idx = pickAt(e.clientX, e.clientY, t.type);
+        if (idx >= 0) optsRef.current.onPickDrone(idx, { add: e.shiftKey });
+      }
       if (pointers.size === 0) {
         orbit.dragging = false;
         el.style.cursor = 'grab';
@@ -374,6 +490,8 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       if (!p) return;
       p.x = e.clientX;
       p.y = e.clientY;
+      if (tap)
+        tap.maxMove = Math.max(tap.maxMove, Math.hypot(e.clientX - tap.x, e.clientY - tap.y));
       if (pointers.size >= 2) {
         const d = pinchDistance();
         if (pinchDist > 0 && d > 0) {
@@ -405,6 +523,15 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       else orbit.dist = Math.max(120, Math.min(480, orbit.dist + e.deltaY * 0.3));
       needsRender = true;
     };
+    const onHoverMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || pointers.size > 0) return;
+      hoverPt = { x: e.clientX, y: e.clientY };
+      hoverDirty = true;
+    };
+    const onHoverLeave = () => {
+      hoverPt = null;
+      hoverDirty = true;
+    };
     const onResize = () => {
       applySize();
       needsRender = true;
@@ -414,6 +541,8 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
     window.addEventListener('pointercancel', onPointerUp);
     window.addEventListener('pointermove', onPointerMove);
     el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('pointermove', onHoverMove);
+    el.addEventListener('pointerleave', onHoverLeave);
     window.addEventListener('resize', onResize);
 
     let fpsEma = 60;
@@ -429,8 +558,191 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
     /** 一時停止中にシークされたら、この回数分だけ物理を進めて機体を新しい形へ動かす */
     let settleFrames = 0;
 
-    function render() {
+    function computeCentroid(out: THREE.Vector3) {
+      let cx = 0;
+      let cy = 0;
+      let cz = 0;
+      for (let i = 0; i < DRONE_COUNT; i++) {
+        cx += posBuf[i * 3]!;
+        cy += posBuf[i * 3 + 1]!;
+        cz += posBuf[i * 3 + 2]!;
+      }
+      return out.set(cx / DRONE_COUNT, cy / DRONE_COUNT, cz / DRONE_COUNT);
+    }
+
+    function pipTargetSize(rect: PipRect) {
+      return {
+        w: Math.max(1, Math.round(rect.w * dpr)),
+        h: Math.max(1, Math.round(rect.h * dpr)),
+      };
+    }
+
+    /** 画面側が決めた小窓の一覧を、負荷で許された数まで描画資源に反映する。変わったら true */
+    function syncPips(views: ShowState['pips'], allowed: number): boolean {
+      const want = views.slice(0, allowed);
+      let changed = false;
+      while (pipSlots.length > want.length) {
+        pipSlots.pop()!.target.dispose();
+        changed = true;
+      }
+      want.forEach((v, k) => {
+        const size = pipTargetSize(v.rect);
+        let slot = pipSlots[k];
+        if (!slot) {
+          slot = {
+            index: v.index,
+            rect: v.rect,
+            cam: new THREE.PerspectiveCamera(FOV_DRONE, v.rect.w / v.rect.h, 0.1, 2000),
+            target: new THREE.WebGLRenderTarget(size.w, size.h),
+            dirty: true,
+          };
+          pipSlots.push(slot);
+          changed = true;
+          return;
+        }
+        if (slot.index !== v.index) {
+          slot.index = v.index;
+          slot.dirty = true;
+          changed = true;
+        }
+        const r = slot.rect;
+        if (r.x !== v.rect.x || r.y !== v.rect.y || r.w !== v.rect.w || r.h !== v.rect.h) {
+          slot.rect = v.rect;
+          slot.cam.aspect = v.rect.w / v.rect.h;
+          slot.cam.updateProjectionMatrix();
+          slot.dirty = true;
+          changed = true;
+        }
+        if (slot.target.width !== size.w || slot.target.height !== size.h) {
+          slot.target.setSize(size.w, size.h);
+          slot.dirty = true;
+          changed = true;
+        }
+      });
+      return changed;
+    }
+
+    /** 乗っている機体の点を一時的に戻す / 消す（本体のカメラ位置の点は消すが、小窓からは見えてほしい） */
+    function setHostColor(visible: boolean) {
+      if (hiddenIdx < 0) return;
+      const o = hiddenIdx * 3;
+      colBuf[o] = visible ? baseCol[o]! : 0;
+      colBuf[o + 1] = visible ? baseCol[o + 1]! : 0;
+      colBuf[o + 2] = visible ? baseCol[o + 2]! : 0;
+      // 部分更新（addUpdateRange）は他の全体更新と取り合うので使わない。660 点ぶん 8KB の転送で済む
+      droneGeom.attributes.color!.needsUpdate = true;
+    }
+
+    /**
+     * 本体と小窓を 1 つの WebGL context で描く。小窓は各自の render target に（間引くときは数フレームに 1 回）描き、
+     * 毎フレーム scissor / viewport で画面の決まった位置へ貼る。preserveDrawingBuffer を切っているので、
+     * 本体を描いたフレームでは小窓も必ず貼り直す必要がある
+     */
+    function render(updateAllPips = false) {
+      renderer.setRenderTarget(null);
+      renderer.setScissorTest(false);
+      renderer.setViewport(0, 0, viewW, viewH);
       renderer.render(scene, camera);
+      if (pipSlots.length === 0) return;
+
+      const { interval } = pipBudget.current(pipSlots.length);
+      const updates = pipSlots.filter(
+        (slot, k) => updateAllPips || slot.dirty || shouldUpdatePip(pipFrame, k, interval)
+      );
+      pipFrame++;
+      if (updates.length > 0) {
+        computeCentroid(centroid);
+        const mainSize = droneMat.size;
+        const mainTrail = trailMat.size;
+        const prevClear = renderer.getClearColor(new THREE.Color());
+        const prevAlpha = renderer.getClearAlpha();
+        setHostColor(true);
+        // 小窓は不透明な空の色で塗る（本体は透明にして CSS の空のグラデーションを見せている）
+        renderer.setClearColor(scene.fog instanceof THREE.FogExp2 ? scene.fog.color : 0x02030a, 1);
+        for (const slot of updates) {
+          const i = slot.index;
+          pipHost.set(posBuf[i * 3]!, posBuf[i * 3 + 1]!, posBuf[i * 3 + 2]!);
+          pipLook.subVectors(centroid, pipHost);
+          if (pipLook.lengthSq() < 1) pipLook.set(0, 0, -1);
+          pipLook.normalize().add(pipHost);
+          slot.cam.position.copy(pipHost);
+          slot.cam.lookAt(pipLook);
+          // 点の大きさは描画先の高さではなく canvas の高さで決まるので、小窓の縮尺に合わせて縮める
+          const k = slot.target.height / (viewH * dpr);
+          droneMat.size = mainSize * k;
+          trailMat.size = mainTrail * k;
+          pointClamp.value = Math.max(4, MAX_POINT_PX * k);
+          renderer.setRenderTarget(slot.target);
+          renderer.render(scene, slot.cam);
+          slot.dirty = false;
+        }
+        droneMat.size = mainSize;
+        trailMat.size = mainTrail;
+        pointClamp.value = MAX_POINT_PX;
+        renderer.setRenderTarget(null);
+        renderer.setClearColor(prevClear, prevAlpha);
+        setHostColor(false);
+      }
+
+      renderer.setScissorTest(true);
+      for (const slot of pipSlots) {
+        const { x, y, w, h } = slot.rect;
+        const glY = viewH - y - h;
+        renderer.setViewport(x, glY, w, h);
+        renderer.setScissor(x, glY, w, h);
+        if (blitMat.map !== slot.target.texture) {
+          const first = blitMat.map === null;
+          blitMat.map = slot.target.texture;
+          if (first) blitMat.needsUpdate = true;
+        }
+        renderer.render(blitScene, blitCam);
+      }
+      renderer.setScissorTest(false);
+      renderer.setViewport(0, 0, viewW, viewH);
+    }
+
+    function updateLabels() {
+      const items: { index: number; kind: 'hover' | 'pip' }[] = [];
+      if (hoverIdx >= 0) items.push({ index: hoverIdx, kind: 'hover' });
+      for (const slot of pipSlots) {
+        if (slot.index !== hoverIdx) items.push({ index: slot.index, kind: 'pip' });
+      }
+      if (items.length > 0) {
+        camera.updateMatrixWorld();
+        viewProj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      }
+      items.forEach((item, k) => {
+        let node = labelPool[k];
+        if (!node) {
+          node = document.createElement('div');
+          labelPool.push(node);
+          labelLayer.appendChild(node);
+        }
+        const i = item.index;
+        const p =
+          isDroneCam() && i === hiddenIdx
+            ? null
+            : projectPoint(
+                viewProj.elements,
+                posBuf[i * 3]!,
+                posBuf[i * 3 + 1]!,
+                posBuf[i * 3 + 2]!,
+                viewW,
+                viewH
+              );
+        if (!p || p.x < 0 || p.y < 0 || p.x > viewW || p.y > viewH) {
+          node.style.display = 'none';
+          return;
+        }
+        // 文字は CSS の attr(data-id) で出す（点の位置に置いた幅 0 の要素から、札だけをずらして描くため）
+        const text = droneIdFromIndex(i);
+        const cls = `drone-label ${item.kind}`;
+        if (node.dataset.id !== text) node.dataset.id = text;
+        if (node.className !== cls) node.className = cls;
+        node.style.display = '';
+        node.style.transform = `translate3d(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px, 0)`;
+      });
+      for (let k = items.length; k < labelPool.length; k++) labelPool[k]!.style.display = 'none';
     }
 
     function animate(now: number) {
@@ -563,15 +875,7 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
         const host = pov.idx >= 0 && pov.idx < DRONE_COUNT ? pov.idx : 0;
         setHidden(host);
         // 編隊の重心を見る（ドラッグで見回した分を足す）
-        let cx = 0;
-        let cy = 0;
-        let cz = 0;
-        for (let i = 0; i < DRONE_COUNT; i++) {
-          cx += posBuf[i * 3]!;
-          cy += posBuf[i * 3 + 1]!;
-          cz += posBuf[i * 3 + 2]!;
-        }
-        centroid.set(cx / DRONE_COUNT, cy / DRONE_COUNT, cz / DRONE_COUNT);
+        computeCentroid(centroid);
         tmp.set(posBuf[host * 3]!, posBuf[host * 3 + 1]!, posBuf[host * 3 + 2]!);
         if (camPos.distanceToSquared(tmp) > 1e-4) {
           camPos.lerp(tmp, 0.2);
@@ -639,23 +943,58 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
         }
       }
 
+      // ---- 小窓 ----
+      const requestedPips = state.pips.length;
+      const pipAllowed = pipBudget.current(requestedPips).allowed;
+      if (state.pips !== lastPipViews || pipAllowed !== lastPipAllowed || dpr !== lastPipDpr) {
+        if (syncPips(state.pips, pipAllowed)) {
+          needsRender = true;
+          labelsDirty = true;
+        }
+        lastPipViews = state.pips;
+        lastPipAllowed = pipAllowed;
+        lastPipDpr = dpr;
+      }
+
+      // ---- マウスを乗せた機体 ----
+      if (hoverDirty || (hoverPt && needsRender)) {
+        const prev = hoverIdx;
+        hoverIdx = hoverPt ? pickAt(hoverPt.x, hoverPt.y, 'mouse') : -1;
+        hoverDirty = false;
+        if (prev !== hoverIdx) {
+          labelsDirty = true;
+          if (pointers.size === 0) el.style.cursor = hoverIdx >= 0 ? 'pointer' : 'grab';
+        }
+      }
+
       if (needsRender) {
         render();
         frameCount++;
         renderedSinceHud = true;
         needsRender = false;
+        labelsDirty = true;
         if (dtMs > 0 && dtMs < 250) fpsEma += (1000 / dtMs - fpsEma) * 0.1;
         if (state.playing) {
-          const action = resolution.push(dtMs, now);
-          if (action.type === 'dpr') {
-            dpr = action.dpr;
-            applySize();
-          } else if (action.type === 'lite' && !state.lite) {
-            opts.onAutoLite();
+          // 重いときは小窓を先に落とす。小窓がもう減らせないときだけ本体の解像度を調整する
+          const pipsCanDrop = pipBudget.canDegrade(requestedPips);
+          const next = pipBudget.push(dtMs, now, requestedPips);
+          if (next) opts.onPipLevel(pipBudget.level);
+          if (!pipsCanDrop) {
+            const action = resolution.push(dtMs, now);
+            if (action.type === 'dpr') {
+              dpr = action.dpr;
+              applySize();
+            } else if (action.type === 'lite' && !state.lite) {
+              opts.onAutoLite();
+            }
           }
         }
       } else {
         resolution.observe(dtMs);
+      }
+      if (labelsDirty) {
+        updateLabels();
+        labelsDirty = false;
       }
       lastShowTime = state.showTime;
 
@@ -672,6 +1011,16 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
           fps: state.playing ? Math.round(fpsEma) : 0,
           dpr,
         });
+        if (pipSlots.length > 0) {
+          opts.onPipCoords(
+            pipSlots.map(({ index: i }) => ({
+              index: i,
+              x: posBuf[i * 3]!,
+              y: posBuf[i * 3 + 1]!,
+              z: posBuf[i * 3 + 2]!,
+            }))
+          );
+        }
       }
     }
     rafId = requestAnimationFrame(animate);
@@ -690,7 +1039,7 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       capture: () => {
         try {
           // preserveDrawingBuffer を切っているので、描いた直後の同じタスク内で読み出す
-          render();
+          render(true);
           return renderer.domElement.toDataURL('image/png');
         } catch {
           return null;
@@ -708,7 +1057,13 @@ export function useDroneShow(canvasRoot: HTMLDivElement | null, options: Options
       window.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('pointermove', onPointerMove);
       el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('pointermove', onHoverMove);
+      el.removeEventListener('pointerleave', onHoverLeave);
       window.removeEventListener('resize', onResize);
+      labelLayer.remove();
+      for (const slot of pipSlots) slot.target.dispose();
+      blitQuad.geometry.dispose();
+      blitMat.dispose();
       try {
         canvasRoot.removeChild(renderer.domElement);
       } catch {

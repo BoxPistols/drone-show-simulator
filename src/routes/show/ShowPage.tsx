@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FORMATIONS, TOTAL_TIME } from '~/lib/formations';
+import { droneIdFromIndex, stepDroneIndex } from '~/lib/droneId';
+import { DRONE_COUNT, FORMATIONS, TOTAL_TIME } from '~/lib/formations';
 import { useLatestRef } from '~/hooks/useLatestRef';
 import { usePersistedState } from '~/hooks/usePersistedState';
 import { useToast } from '~/hooks/useToast';
@@ -8,6 +9,7 @@ import type { PaletteKey, SkyKey } from '~/types/formations';
 import { ChromeTop } from './components/ChromeTop';
 import { KeyboardHints } from './components/KeyboardHints';
 import { NowPlayingCard } from './components/NowPlayingCard';
+import { PipViews } from './components/PipViews';
 import { ProgrammeBar } from './components/ProgrammeBar';
 import { TransportBar } from './components/TransportBar';
 import { TweaksPanel } from './components/TweaksPanel';
@@ -15,12 +17,15 @@ import { WebglNotice } from './components/WebglNotice';
 import type { WebglFailure } from './browser';
 import { useAmbientMusic } from './hooks/useAmbientMusic';
 import { type ShowHandle, useDroneShow } from './hooks/useDroneShow';
+import { MAX_PIPS, maxPipsFor, pipLayout, pipLevel } from './pip';
 import { CAMERA_META, nextCameraMode, pickPovDrone } from './pov';
 import { isPrefs, prefsReducer, withDefaults } from './prefs';
 import {
   type CameraMode,
   DEFAULT_PREFS,
+  type DroneCoord,
   type HudInfo,
+  type PipView,
   type ShowPrefs,
   type ShowState,
   SPEED_STEPS,
@@ -28,15 +33,29 @@ import {
   type ToggleKey,
 } from './types';
 import { fmtTime, nearestSpeed } from './utils';
+import { parseViewParams, writeViewParams } from './viewParams';
 import './show.css';
 
 const INITIAL_HUD: HudInfo = { time: 0, alt: 0, wind: 0, frame: 0, fps: 0, dpr: 1 };
 
-const droneId = (i: number) => `AS-${String(i + 1).padStart(3, '0')}`;
+const droneId = droneIdFromIndex;
+const NO_PIPS: readonly PipView[] = [];
+
+function useViewportSize() {
+  const [size, setSize] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
+  useEffect(() => {
+    const onResize = () => setSize({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return size;
+}
 
 export function ShowPage() {
   const canvasRootRef = useRef<HTMLDivElement>(null);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // ?pov= と ?pip= は最初の 1 回だけ読む。以後は画面の状態から URL へ書き戻す（共有用）
+  const [urlView] = useState(() => parseViewParams(searchParams));
   const { show: showToast } = useToast();
 
   // Prefs: localStorage + URL params (URL > localStorage > default)
@@ -52,6 +71,7 @@ export function ShowPage() {
     return {
       ...withDefaults(persistedPrefs),
       ...(speedFromUrl !== null ? { speed: speedFromUrl } : {}),
+      ...(urlView.pov !== null ? { camera: 'drone' as const } : {}),
     };
     // intentionally only seed once; subsequent edits flow through dispatch
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,7 +102,8 @@ export function ShowPage() {
     formationIndex: initialFormationIndex,
     showTime: FORMATIONS[initialFormationIndex]!.start + 0.01,
     playing: true,
-    povIndex: -1,
+    povIndex: urlView.pov ?? -1,
+    pips: NO_PIPS,
   });
   useEffect(() => {
     stateRef.current = { ...stateRef.current, ...effectivePrefs };
@@ -98,8 +119,13 @@ export function ShowPage() {
   }, [playing]);
 
   // ---- 機体目線で乗る機体 ----
-  const [povIndex, setPovIndex] = useState(-1);
+  const [povIndex, setPovIndex] = useState(urlView.pov ?? -1);
   const povIndexRef = useLatestRef(povIndex);
+  /** 小窓で見たい機体（利用者が選んだ順）。表示できる数は画面幅・軽量モード・負荷で下の pipViews が決める */
+  const [pipList, setPipList] = useState<number[]>(() =>
+    urlView.pips.filter((i) => i !== urlView.pov)
+  );
+  const pipListRef = useLatestRef(pipList);
   useEffect(() => {
     stateRef.current.povIndex = povIndex;
   }, [povIndex]);
@@ -125,11 +151,31 @@ export function ShowPage() {
     if (prefsRef.current.camera !== 'drone') dispatch({ type: 'camera', value: 'drone' });
     showToast(`${droneId(id)} の目線に切り替えました`);
   }, [pickPov, showToast, povIndexRef, prefsRef]);
-  // 保存された設定が機体目線なら、起動時に乗る機体を決める
+  // 保存された設定が機体目線なら、起動時に乗る機体を決める（URL で指定されていればそれに乗る）
   useEffect(() => {
-    if (initial.camera === 'drone') pickPov(-1);
+    if (initial.camera === 'drone' && urlView.pov === null) pickPov(-1);
+    if (urlView.invalidPov !== null) {
+      showToast(
+        `「${urlView.invalidPov}」に当たる機体がありません（AS-001〜${droneId(DRONE_COUNT - 1)}）`
+      );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** 指定した機体に乗る。小窓に同じ機体があれば、同じ映像が 2 つにならないよう外す */
+  const ridePov = useCallback(
+    (index: number) => {
+      setPovIndex(index);
+      setPipList((list) => (list.includes(index) ? list.filter((i) => i !== index) : list));
+      if (prefsRef.current.camera !== 'drone') dispatch({ type: 'camera', value: 'drone' });
+    },
+    [prefsRef]
+  );
+  /** ID 順に前後の機体へ */
+  const stepPov = useCallback(
+    (dir: 1 | -1) => ridePov(stepDroneIndex(povIndexRef.current, dir)),
+    [ridePov, povIndexRef]
+  );
 
   // ---- アンビエント音楽（端末で生成。初めて ON にしたときだけコードを読み込む） ----
   const music = useAmbientMusic({
@@ -152,6 +198,19 @@ export function ShowPage() {
   }, [showToast]);
   const onUnavailable = useCallback((failure: WebglFailure) => setWebglFailure(failure), []);
 
+  const onPickDrone = useCallback(
+    (index: number, opts: { add: boolean }) => {
+      if (opts.add) addPipRef.current(index);
+      else ridePov(index);
+    },
+    [ridePov]
+  );
+  // 負荷による小窓の間引きの段。0 は間引きなし
+  const [pipBudgetLevel, setPipBudgetLevel] = useState(0);
+  const [pipCoords, setPipCoords] = useState<DroneCoord[]>([]);
+  // addPip は下で小窓の上限が決まってから作るので、ref 経由で渡す
+  const addPipRef = useRef<(index: number) => void>(() => undefined);
+
   useDroneShow(canvasRootRef.current, {
     stateRef,
     onFormationChange: setFormationIndex,
@@ -159,6 +218,9 @@ export function ShowPage() {
     onAutoLite,
     onUnavailable,
     handleRef,
+    onPickDrone,
+    onPipLevel: setPipBudgetLevel,
+    onPipCoords: setPipCoords,
   });
   // ref は初回レンダー時点では空なので、マウント後にもう一度だけ描画してフックへ渡す
   const [, forceRerender] = useState(0);
@@ -297,6 +359,12 @@ export function ShowPage() {
         case 'V':
           nextPov();
           break;
+        case '[':
+          stepPov(-1);
+          break;
+        case ']':
+          stepPov(1);
+          break;
         case 'm':
         case 'M':
           toggleMusic();
@@ -341,6 +409,7 @@ export function ShowPage() {
     toggleTweaks,
     cycleCamera,
     nextPov,
+    stepPov,
     toggleMusic,
   ]);
 
@@ -348,6 +417,96 @@ export function ShowPage() {
     document.body.classList.toggle('tweaks-open', tweaksOpen);
     return () => document.body.classList.remove('tweaks-open');
   }, [tweaksOpen]);
+
+  // ---- 小窓 ----
+  const viewport = useViewportSize();
+  const maxPips = maxPipsFor({ lite: effectiveLite, width: viewport.w });
+  const pipViews = useMemo<readonly PipView[]>(() => {
+    const wanted = pipList.slice(0, maxPips);
+    if (wanted.length === 0 || webglFailure !== null) return NO_PIPS;
+    const rects = pipLayout({
+      width: viewport.w,
+      height: viewport.h,
+      count: wanted.length,
+      tweaksOpen,
+    });
+    return rects.map((rect, k) => ({ index: wanted[k]!, rect }));
+  }, [pipList, maxPips, viewport.w, viewport.h, tweaksOpen, webglFailure]);
+  useEffect(() => {
+    stateRef.current.pips = pipViews;
+  }, [pipViews]);
+  const budget = pipLevel(pipBudgetLevel, pipViews.length);
+  const shownPips = pipViews.slice(0, budget.allowed);
+
+  const pipNotice = useMemo(() => {
+    if (pipList.length === 0) return null;
+    if (effectiveLite) return '軽量モードのため小窓は表示していません';
+    if (pipList.length > maxPips) return `この画面幅では小窓は ${String(maxPips)} つまでです`;
+    if (pipViews.length < pipList.length)
+      return pipViews.length === 0
+        ? '画面が狭いため小窓を表示できません'
+        : `画面が狭いため小窓を ${String(pipViews.length)} つだけ表示しています`;
+    if (budget.allowed < pipViews.length)
+      return `描画が重いため小窓を ${String(budget.allowed)} つに減らしています`;
+    if (budget.interval > 1) return '描画が重いため小窓の更新を間引いています';
+    return null;
+  }, [pipList.length, effectiveLite, maxPips, pipViews.length, budget.allowed, budget.interval]);
+
+  // 負荷で小窓が減ったときだけ知らせる（間隔を間引くだけなら見た目はほぼ変わらないので黙る）
+  const lastAllowedRef = useRef(budget.allowed);
+  useEffect(() => {
+    if (budget.allowed < lastAllowedRef.current && budget.allowed < pipViews.length) {
+      showToast(`描画が重いため小窓を ${String(budget.allowed)} つに減らしました`);
+    }
+    lastAllowedRef.current = budget.allowed;
+  }, [budget.allowed, pipViews.length, showToast]);
+
+  const addPip = useCallback(
+    (index: number) => {
+      const list = pipListRef.current;
+      const id = droneId(index);
+      if (maxPips === 0) {
+        showToast(effectiveLite ? '軽量モードでは小窓を使えません' : '小窓を使えません');
+      } else if (list.includes(index)) {
+        showToast(`${id} はもう小窓にあります`);
+      } else if (prefsRef.current.camera === 'drone' && index === povIndexRef.current) {
+        showToast(`${id} はメインの視点で表示しています`);
+      } else if (list.length >= maxPips) {
+        showToast(`小窓は ${String(maxPips)} つまでです。どれかを閉じてから追加してください`);
+      } else {
+        setPipList([...list, index]);
+        showToast(`${id} を小窓に追加しました`);
+      }
+    },
+    [maxPips, effectiveLite, showToast, pipListRef, prefsRef, povIndexRef]
+  );
+  addPipRef.current = addPip;
+  const removePip = useCallback(
+    (index: number) => setPipList((list) => list.filter((i) => i !== index)),
+    []
+  );
+  /** 小窓の機体をメインにする。機体目線ならメインだった機体と入れ替える */
+  const promotePip = useCallback(
+    (index: number) => {
+      const main = povIndexRef.current;
+      if (prefsRef.current.camera === 'drone' && main >= 0 && main !== index) {
+        setPipList((list) => list.map((i) => (i === index ? main : i)));
+        setPovIndex(index);
+      } else {
+        ridePov(index);
+      }
+    },
+    [ridePov, povIndexRef, prefsRef]
+  );
+
+  // ---- URL へ書き戻す（このページの URL を送れば同じ視点で開ける） ----
+  useEffect(() => {
+    const pov = prefs.camera === 'drone' && povIndex >= 0 ? povIndex : null;
+    // 変わらないときは呼ばない（setSearchParams は同じ値でも履歴の置き換えと再描画を起こすため）
+    const current = new URLSearchParams(window.location.search);
+    const next = writeViewParams(current, { pov, pips: pipList.slice(0, MAX_PIPS) });
+    if (next.toString() !== current.toString()) setSearchParams(next, { replace: true });
+  }, [prefs.camera, povIndex, pipList, setSearchParams]);
 
   const currentFormation = FORMATIONS[formationIndex] ?? FORMATIONS[0]!;
   const stats = useMemo(
@@ -387,9 +546,29 @@ export function ShowPage() {
             <span className="vp-id">{droneId(povIndex)}</span>
           )}
           {prefs.camera === 'drone' && (
-            <button type="button" onClick={nextPov} aria-label="別の機体の目線へ (V)">
-              別の機体
-            </button>
+            <>
+              <button
+                type="button"
+                className="vp-step"
+                onClick={() => stepPov(-1)}
+                aria-label="ID が 1 つ前の機体へ ([)"
+                title="ID が 1 つ前の機体へ ([)"
+              >
+                <span aria-hidden="true">‹</span>
+              </button>
+              <button
+                type="button"
+                className="vp-step"
+                onClick={() => stepPov(1)}
+                aria-label="ID が 1 つ次の機体へ (])"
+                title="ID が 1 つ次の機体へ (])"
+              >
+                <span aria-hidden="true">›</span>
+              </button>
+              <button type="button" onClick={nextPov} aria-label="別の機体の目線へ (V)">
+                別の機体
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -437,7 +616,15 @@ export function ShowPage() {
         onCameraChange={setCamera}
         onNextPov={nextPov}
         onVolumeChange={onVolumeChange}
+        pips={pipList}
+        maxPips={maxPips}
+        pipNotice={pipNotice}
+        onRide={ridePov}
+        onAddPip={addPip}
+        onRemovePip={removePip}
+        onPromotePip={promotePip}
       />
+      <PipViews views={shownPips} coords={pipCoords} onPromote={promotePip} onRemove={removePip} />
       <KeyboardHints open={hintsOpen} onClose={closeHints} />
       <div className="frame-count" aria-hidden="true">
         FRAME {String(hud.frame).padStart(6, '0')} ・{' '}

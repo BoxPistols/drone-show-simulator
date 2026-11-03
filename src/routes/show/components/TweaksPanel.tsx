@@ -2,7 +2,9 @@ import { memo } from 'react';
 import { PALETTES, SKIES, FORMATIONS } from '~/lib/formations';
 import type { PaletteKey, SkyKey } from '~/types/formations';
 import { PALETTE_KEYS, SKY_KEYS } from '~/types/formations';
+import { droneIdFromIndex } from '~/lib/droneId';
 import { CAMERA_META } from '../pov';
+import { DronePicker } from './DronePicker';
 import { CAMERA_MODES, type CameraMode, type ShowPrefs, type ToggleKey } from '../types';
 
 interface Props {
@@ -20,6 +22,14 @@ interface Props {
   onCameraChange: (mode: CameraMode) => void;
   onNextPov: () => void;
   onVolumeChange: (v: number) => void;
+  /** 小窓で見ている機体（利用者が選んだ順） */
+  pips: readonly number[];
+  maxPips: number;
+  pipNotice: string | null;
+  onRide: (index: number) => void;
+  onAddPip: (index: number) => void;
+  onRemovePip: (index: number) => void;
+  onPromotePip: (index: number) => void;
 }
 
 const TOGGLES: ReadonlyArray<{ key: ToggleKey; label: string; hint?: string }> = [
@@ -47,6 +57,13 @@ export const TweaksPanel = memo(function TweaksPanel({
   onCameraChange,
   onNextPov,
   onVolumeChange,
+  pips,
+  maxPips,
+  pipNotice,
+  onRide,
+  onAddPip,
+  onRemovePip,
+  onPromotePip,
 }: Props) {
   return (
     <div
@@ -88,9 +105,19 @@ export const TweaksPanel = memo(function TweaksPanel({
         <div className="tw-cam-desc">{CAMERA_META[prefs.camera].desc}</div>
         {prefs.camera === 'drone' && (
           <button type="button" className="tw-next" onClick={onNextPov}>
-            別の機体へ{povIndex >= 0 && ` ・ 今は AS-${String(povIndex + 1).padStart(3, '0')}`}
+            別の機体へ{povIndex >= 0 && ` ・ 今は ${droneIdFromIndex(povIndex)}`}
           </button>
         )}
+        <DronePicker
+          povIndex={povIndex}
+          pips={pips}
+          maxPips={maxPips}
+          pipNotice={pipNotice}
+          onRide={onRide}
+          onAddPip={onAddPip}
+          onRemovePip={onRemovePip}
+          onPromotePip={onPromotePip}
+        />
       </div>
 
       <div className="tw-section">

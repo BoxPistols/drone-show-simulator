@@ -1,4 +1,5 @@
 import type { PaletteKey, SkyKey } from '~/types/formations';
+import type { PipRect } from './pip';
 
 export const SPEED_STEPS = [0.25, 0.5, 1, 2, 5, 10] as const;
 export type SpeedStep = (typeof SPEED_STEPS)[number];
@@ -46,6 +47,21 @@ export interface ShowState extends ShowPrefs {
   playing: boolean;
   /** 機体目線で乗る機体。-1 なら未選択 */
   povIndex: number;
+  /** 小窓で同時に見る機体と、その画面上の位置（上限・配置の判定は済んだもの） */
+  pips: readonly PipView[];
+}
+
+export interface PipView {
+  index: number;
+  rect: PipRect;
+}
+
+/** 小窓の機体の現在位置（画面外の文字による代替表示に使う） */
+export interface DroneCoord {
+  index: number;
+  x: number;
+  y: number;
+  z: number;
 }
 
 export interface HudInfo {

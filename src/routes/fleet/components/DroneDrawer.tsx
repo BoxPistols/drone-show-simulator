@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { povHref } from '~/lib/droneId';
 import { type Drone, STATUS_META } from '~/lib/fleet';
 import { FormationAssignPreview } from './FormationAssignPreview';
 
@@ -32,6 +34,11 @@ export function DroneDrawer({ drone, onClose, onAction }: Props) {
           {drone.model} ・ {meta.jp}
         </div>
       </div>
+
+      <Link className="drw-btn drw-pov" to={povHref(drone.idx)}>
+        この機体の視点で見る
+        <span className="drw-pov-sub">観賞ページを {drone.id} の機体目線で開きます</span>
+      </Link>
 
       <section className="drw-section">
         <header className="drw-sec-title">
