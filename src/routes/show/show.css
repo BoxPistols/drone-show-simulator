@@ -38,37 +38,94 @@
   #canvas-root canvas { touch-action: none; user-select: none; -webkit-user-select: none; }
 
   /* WebGL が使えないときの案内。<dialog> の showModal で最前面（top layer）に出るので z-index は不要。
-     文章が長いので、画面が低いときは中でスクロールさせる */
+     画面が低いときは中でスクロールさせる */
   .webgl-notice {
-    width: min(540px, calc(100vw - 32px));
+    width: min(460px, calc(100vw - 32px));
     max-height: calc(100dvh - 32px);
     overflow-y: auto;
     margin: auto;
-    padding: 22px 26px 18px;
+    padding: 20px 22px 16px;
     background: var(--ink-strong);
     border: 1px solid var(--hair-2);
     border-radius: 12px;
     font-size: 13px;
-    line-height: 1.85;
+    line-height: 1.7;
     color: rgba(255,255,255,0.8);
   }
   .webgl-notice:focus { outline: none; }
   .webgl-notice::backdrop { background: rgba(2,3,10,0.6); }
+  .webgl-notice-head {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding-bottom: 14px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--hair-2);
+  }
+  .webgl-notice-badge {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(251,191,36,0.4);
+    border-radius: 10px;
+    background: rgba(251,191,36,0.1);
+    color: var(--warn);
+  }
   .webgl-notice h2 {
-    margin: 0 0 6px;
+    margin: 0;
     font-family: "Shippori Mincho", "Yu Mincho", serif;
     font-size: 16px;
     font-weight: 500;
     color: #fff;
     letter-spacing: 0.06em;
   }
+  .webgl-notice-lead { margin: 0; font-size: 12px; color: rgba(255,255,255,0.6); }
+  .webgl-notice-row {
+    display: flex;
+    gap: 10px;
+    padding-top: 12px;
+  }
+  .webgl-notice-row > svg { flex: none; margin-top: 3px; color: rgba(255,255,255,0.55); }
+  .webgl-notice-row > div { min-width: 0; }
   .webgl-notice h3 {
-    margin: 16px 0 4px;
+    margin: 0 0 2px;
     font-size: 13px;
     font-weight: 600;
     color: #fff;
   }
-  .webgl-notice p { margin: 0 0 8px; }
+  .webgl-notice p { margin: 0; }
+  .webgl-notice p + p { margin-top: 4px; }
+  .webgl-notice-steps {
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
+  }
+  .webgl-notice-steps li {
+    position: relative;
+    padding-left: 26px;
+    counter-increment: step;
+  }
+  .webgl-notice-steps li + li { margin-top: 4px; }
+  .webgl-notice-steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 3px;
+    width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--hair-2);
+    border-radius: 50%;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    line-height: 1;
+    color: #fff;
+  }
+  .webgl-notice-note { margin-top: 6px !important; font-size: 12px; color: rgba(255,255,255,0.6); }
   .webgl-notice code {
     padding: 1px 6px;
     border-radius: 4px;
@@ -78,7 +135,8 @@
     color: #fff;
     user-select: all;
     -webkit-user-select: all;
-    word-break: break-all;
+    /* 入りきらないときだけ折る。いつでも折ると URL が中途半端な位置で切れる */
+    overflow-wrap: anywhere;
   }
   .webgl-notice-tech {
     margin-top: 12px;
