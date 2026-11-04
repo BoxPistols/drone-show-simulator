@@ -242,7 +242,7 @@ export function fHeart(n: number): Float32Array {
 }
 
 /**
- * Rilakkuma-style kawaii bear face with muzzle.
+ * Kawaii bear face with muzzle.
  * - Head: wide ellipse, eyes as voids (negative space)
  * - Muzzle: horizontal void with nose + mouth as positive drones inside
  * - Ears: 2 rounded discs offset from head
