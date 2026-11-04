@@ -35,7 +35,8 @@ jobs:
         run: pnpm build
 
   e2e:
-    runs-on: ubuntu-latest
+    # ubuntu-latest が 26.04 になり、Playwright がそのブラウザを配布していないため固定する
+    runs-on: ubuntu-24.04
     needs: test
     timeout-minutes: 15
     steps:
