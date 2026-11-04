@@ -17,6 +17,8 @@ export default tseslint.config(
       'test/**',
       'tools/**',
       'e2e/**',
+      // 紹介動画は別パッケージ（video/package.json）。アプリの lint 対象にしない
+      'video/**',
       'formations.js',
       'show.js',
       'show-schema.js',
