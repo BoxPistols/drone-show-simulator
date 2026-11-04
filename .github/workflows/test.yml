@@ -35,8 +35,7 @@ jobs:
         run: pnpm build
 
   e2e:
-    # ubuntu-latest は順次 Ubuntu 26.04 に切り替わっており、Playwright 1.60 は 26.04 に対応していない
-    # （playwright install --with-deps が失敗する）。Playwright が 26.04 に対応したら ubuntu-latest に戻す
+    # ubuntu-latest が 26.04 になり、Playwright がそのブラウザを配布していないため固定する
     runs-on: ubuntu-24.04
     needs: test
     timeout-minutes: 15
