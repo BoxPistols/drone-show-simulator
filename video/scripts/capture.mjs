@@ -9,6 +9,7 @@
  * Playwright のブラウザが入っていない環境では CHROMIUM_PATH で手元の Chromium を指定できる。
  */
 import { spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -30,26 +31,54 @@ const SHOTS = [
   { path: '/schedule', file: 'schedule.jpg', wait: 2500 },
 ];
 
+// このアプリの index.html の <title>。ポートに別のサーバーが居ても、その画面を撮らないための目印
+const appHtml = await readFile(path.join(appDir, 'index.html'), 'utf8');
+const APP_TITLE = appHtml.match(/<title>([^<]+)<\/title>/)?.[1];
+if (!APP_TITLE) throw new Error('index.html has no <title>');
+
+// pnpm exec を挟むと終了の合図が vite まで届かず残るので、vite を node で直接起動する。
+// 起動に失敗したとき（ポートが使用中など）に理由が分かるよう、エラー出力だけはそのまま流す
+const viteBin = path.join(appDir, 'node_modules/vite/bin/vite.js');
+const server = spawn(process.execPath, [viteBin, '--port', String(PORT), '--strictPort'], {
+  cwd: appDir,
+  stdio: ['ignore', 'ignore', 'inherit'],
+});
+let serverExit = null;
+server.on('exit', (code, signal) => {
+  serverExit = { code, signal };
+});
+
+// finally は終了シグナルでは走らないので、Ctrl-C や kill のときもここで vite を止めてから終わる
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => {
+    server.kill();
+    process.exit(1);
+  });
+}
+
 async function waitForServer(url, timeoutMs = 30000) {
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
+    if (serverExit) {
+      throw new Error(
+        `vite exited before it was ready (code ${serverExit.code}). Is port ${PORT} already in use?`
+      );
+    }
+    let html = null;
     try {
       const res = await fetch(url);
-      if (res.ok) return;
+      if (res.ok) html = await res.text();
     } catch {
       // まだ起動していない
+    }
+    if (html !== null) {
+      if (html.includes(APP_TITLE)) return;
+      throw new Error(`port ${PORT} is serving something other than this app`);
     }
     await sleep(300);
   }
   throw new Error(`dev server did not start: ${url}`);
 }
-
-// pnpm exec を挟むと終了の合図が vite まで届かず残るので、vite を node で直接起動する
-const viteBin = path.join(appDir, 'node_modules/vite/bin/vite.js');
-const server = spawn(process.execPath, [viteBin, '--port', String(PORT), '--strictPort'], {
-  cwd: appDir,
-  stdio: 'ignore',
-});
 
 try {
   await waitForServer(BASE);

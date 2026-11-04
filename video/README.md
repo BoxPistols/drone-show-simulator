@@ -72,7 +72,7 @@ Remotion は初回にブラウザ（Chrome Headless Shell）を自動で取っ�
   ```bash
   pnpm fonts
   ```
-  プロキシ越しの環境では `NODE_USE_ENV_PROXY=1 pnpm fonts` で実行します。
+  プロキシ越しの環境では、Node 22.21 以降で `NODE_USE_ENV_PROXY=1 pnpm fonts` を実行します（それより前の Node はこの変数を読まず、プロキシを使いません）。
 
 書き出しはネットワークに頼らず、`public/` のファイルだけを読みます。
 

@@ -370,10 +370,14 @@ let peak = 0;
 for (const ch of dry) for (const x of ch) peak = Math.max(peak, Math.abs(x));
 const norm = peak > 0 ? Math.pow(10, -1 / 20) / peak : 1;
 
+// ディレイの返りは MASTER の減衰より後に足されるので、最後の 50ms で必ず 0 に戻してクリック音を防ぐ
+const TAIL = Math.floor(0.05 * SR);
+const tailFade = (i: number) => Math.min(1, (N - 1 - i) / TAIL);
+
 const data = Buffer.alloc(N * 4);
 for (let i = 0; i < N; i++) {
   for (let c = 0; c < 2; c++) {
-    const s = Math.max(-1, Math.min(1, dry[c]![i]! * norm));
+    const s = Math.max(-1, Math.min(1, dry[c]![i]! * norm * tailFade(i)));
     data.writeInt16LE(Math.round(s * 32767), i * 4 + c * 2);
   }
 }
