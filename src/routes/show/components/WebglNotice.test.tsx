@@ -70,9 +70,9 @@ describe('<WebglNotice>', () => {
   it('shows cause, Chrome steps and the safety explanation', () => {
     render(<WebglNotice failure={FAILED} userAgent={UA.chrome} maxTouchPoints={0} />);
     expect(screen.getByRole('dialog', { name: '3D 表示を利用できません' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '考えられる原因' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '原因' })).toBeInTheDocument();
     expect(screen.getByText('chrome://settings/system')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '有効にしても安全ですか' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '有効にしても安全です' })).toBeInTheDocument();
   });
 
   it('shows Edge steps for Edge, not Chrome ones', () => {
@@ -94,11 +94,11 @@ describe('<WebglNotice>', () => {
         maxTouchPoints={5}
       />
     );
-    expect(screen.getByText(/ほとんどの場合「ロックダウンモード」が理由/)).toBeInTheDocument();
-    expect(screen.getByText(/端末全体のロックダウンモードは外さず/)).toBeInTheDocument();
+    expect(screen.getByText(/多くはロックダウンモードが原因/)).toBeInTheDocument();
+    expect(screen.getByText(/端末全体はオンのまま/)).toBeInTheDocument();
     expect(screen.queryByText('chrome://settings/system')).not.toBeInTheDocument();
     // iOS の Chrome にはアプリ単位の除外を案内し、Safari の「ぁあ」手順は出さない
-    expect(screen.getByText(/アプリの一覧で Chrome を除外/)).toBeInTheDocument();
+    expect(screen.getByText(/Web ブラウズを設定」で Chrome を除外/)).toBeInTheDocument();
     expect(screen.queryByText(/アドレスバー左の「ぁあ」/)).not.toBeInTheDocument();
   });
 
@@ -125,9 +125,7 @@ describe('<WebglNotice>', () => {
 
   it('does not suggest a desktop toggle on Android', () => {
     render(<WebglNotice failure={FAILED} userAgent={ANDROID_CHROME} maxTouchPoints={5} />);
-    expect(
-      screen.getByText(/パソコン版のようなハードウェアアクセラレーションの切り替えはありません/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Google Play でブラウザを/)).toBeInTheDocument();
     expect(screen.queryByText('chrome://settings/system')).not.toBeInTheDocument();
   });
 

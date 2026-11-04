@@ -8,10 +8,10 @@ import {
   type WebglFailureKind,
 } from '../browser';
 
-// 日本語の文章は JSX の途中で改行すると余計な空白が入るので、段落は文字列の配列で持つ。
+// 日本語の文章は JSX の途中で改行すると余計な空白が入るので、1 行ずつ文字列の配列で持つ。
 // { code } は chrome:// などページからリンクできない文字。選んでコピーできる形で出す
 type Segment = string | { code: string };
-type Paragraph = Segment[];
+type Line = Segment[];
 
 const NAMES: Record<BrowserKind, string> = {
   chrome: 'Chrome',
@@ -23,151 +23,185 @@ const NAMES: Record<BrowserKind, string> = {
   other: 'ブラウザ',
 };
 
-/** iOS のロックダウンモード。サイト単位の除外は Safari だけで、ほかのブラウザはアプリ単位で外す */
-function lockdownIos(browser: BrowserKind): Paragraph {
-  const intro =
-    'iPhone や iPad で 3D が表示されない一番多い原因は「ロックダウンモード」です。オンのときは WebGL が止まります。端末全体の状態は「設定」→「プライバシーとセキュリティ」→「ロックダウンモード」で確認できます。';
-  if (browser === 'safari') {
-    return [
-      intro +
-        'このサイトだけ対象から外す場合は、Safari でこのページを開いたまま、アドレスバー左の「ぁあ」から「Web サイトの設定」を開き、「ロックダウンモード」をオフにしてください。',
-    ];
-  }
-  const name = browser === 'other' ? 'お使いのブラウザ' : NAMES[browser];
-  return [
-    intro +
-      `${name} を対象から外す場合は、その「ロックダウンモード」の画面にある Web ブラウズの設定を開き、アプリの一覧で ${name} を除外してください。Safari の「ぁあ」メニューでの設定は Safari にしか効かないので、このブラウザではこちらの手順になります。`,
-  ];
-}
+type Guide = { steps: Line[]; note?: Line };
 
-const LOCKDOWN_MAC: Paragraph = [
-  'Mac で「ロックダウンモード」をオンにしている場合も WebGL は止まります。このサイトだけ対象から外す場合は、Safari の「設定」→「Web サイト」→「ロックダウンモード」で、このサイトをオフにしてください。Mac 全体の状態は「システム設定」→「プライバシーとセキュリティ」で確認できます。',
-];
+const RESTART_NOTE: Line = ['オンでも出ないときは、ブラウザを完全に終了して開き直してください。'];
 
-/** OS とブラウザの組み合わせごとの「有効にする方法」 */
-function enableSteps(browser: BrowserKind, platform: PlatformKind): Paragraph[] {
+/** OS とブラウザの組み合わせごとの直し方。1 手順 1 行に収める */
+function guideFor(browser: BrowserKind, platform: PlatformKind): Guide {
   if (platform === 'ios') {
-    return [
-      [
-        'iPhone や iPad では、Chrome や Firefox などを含むすべてのブラウザが、中身は Safari と同じ仕組みで表示しています。そのため、設定する場所はブラウザではなく端末の側になります。',
+    // iOS のブラウザはすべて中身が Safari なので、設定は端末側。サイト単位の除外は Safari だけ
+    const name = browser === 'other' ? 'お使いのブラウザ' : NAMES[browser];
+    return {
+      steps: [
+        ['「設定」→「プライバシーとセキュリティ」で「ロックダウンモード」を確認'],
+        browser === 'safari'
+          ? ['オンなら、アドレスバー左の「ぁあ」→「Web サイトの設定」で、このサイトだけオフ']
+          : [`オンなら、ロックダウンモードの「Web ブラウズを設定」で ${name} を除外`],
+        ['iOS / iPadOS を最新にして、ブラウザを開き直す'],
       ],
-      lockdownIos(browser),
-      [
-        'ロックダウンモードを使っていない場合は、「設定」→「一般」→「ソフトウェアアップデート」で iOS / iPadOS を最新にし、ブラウザを一度閉じてから開き直してください。',
-      ],
-    ];
+    };
   }
 
   if (platform === 'android') {
-    return [
-      [
-        `Android の ${NAMES[browser]} には、パソコン版のようなハードウェアアクセラレーションの切り替えはありません。Google Play でブラウザのアプリを最新にし、Android 自体のアップデートも確認してください。そのうえで、最近使ったアプリの一覧からブラウザを完全に閉じ、開き直してください。`,
+    return {
+      steps: [
+        ['Google Play でブラウザを、設定で Android を最新にする'],
+        ['ブラウザを最近使ったアプリの一覧から閉じて、開き直す'],
+        ['直らなければ、別の端末かパソコンで見る'],
       ],
-      [
-        '古い端末や一部のグラフィック機能では、ブラウザが安定のために WebGL を止めていることがあります。その場合は、別の端末やパソコンでご覧ください。',
-      ],
-    ];
+    };
   }
 
   switch (browser) {
     case 'chrome':
-      return [
-        [
-          'Chrome の右上にある「︙」から「設定」を開き、左の一覧から「システム」を選んでください。その中の「グラフィック アクセラレーションが使用可能な場合は使用する」をオンにすると、すぐ横に「再起動」ボタンが出るので、それを押して Chrome を開き直します。設定画面は、アドレスバーに ',
-          { code: 'chrome://settings/system' },
-          ' と入力しても開けます。',
+      return {
+        steps: [
+          [{ code: 'chrome://settings/system' }, ' を開く'],
+          ['「グラフィック アクセラレーションが使用可能な場合は使用する」をオン'],
+          ['横に出る「再起動」を押す'],
         ],
-        [
-          'Brave も同じ手順で、アドレスは ',
+        // Brave は UA が Chrome と同じで見分けられないので、ここで添える
+        note: [
+          'Brave は ',
           { code: 'brave://settings/system' },
-          ' です。Vivaldi など、そのほかの Chrome をもとにしたブラウザでは設定の場所が異なるので、設定画面の検索欄に「ハードウェア」と入力して探してください。',
+          ' で同じ手順です。',
+          ...RESTART_NOTE,
         ],
-      ];
+      };
     case 'edge':
-      return [
-        [
-          'Edge の右上にある「…」から「設定」を開き、左の一覧から「システムとパフォーマンス」を選んでください。その中の「グラフィック アクセラレーションが使用可能な場合は使用する」をオンにして、Edge を再起動します。設定画面は、アドレスバーに ',
-          { code: 'edge://settings/system' },
-          ' と入力しても開けます。',
+      return {
+        steps: [
+          [{ code: 'edge://settings/system' }, ' を開く'],
+          ['「グラフィック アクセラレーションが使用可能な場合は使用する」をオン'],
+          ['Edge を再起動する'],
         ],
-      ];
+        note: RESTART_NOTE,
+      };
     case 'opera':
-      return [
-        [
-          'Opera の設定を開き、上の検索欄に「ハードウェア」と入力してください。「利用可能な場合はハードウェアアクセラレーションを使用する」が見つかるので、それをオンにして Opera を再起動します。設定画面は、アドレスバーに ',
-          { code: 'opera://settings' },
-          ' と入力しても開けます。',
+      return {
+        steps: [
+          [{ code: 'opera://settings' }, ' を開き、「ハードウェア」で検索'],
+          ['「ハードウェアアクセラレーションを使用する」をオン'],
+          ['Opera を再起動する'],
         ],
-      ];
+        note: RESTART_NOTE,
+      };
     case 'firefox':
-      return [
-        [
-          'Firefox の右上にある「≡」から「設定」を開き、「一般」の下のほうにある「パフォーマンス」を探してください。「推奨のパフォーマンス設定を使用する」のチェックを外すと「ハードウェアアクセラレーションを使用する」が現れるので、それをオンにして Firefox を再起動します。',
+      return {
+        steps: [
+          ['「設定」→「一般」→「パフォーマンス」を開く'],
+          [
+            '「推奨のパフォーマンス設定を使用する」を外し、「ハードウェアアクセラレーションを使用する」をオン',
+          ],
+          ['Firefox を再起動する'],
         ],
-        [
-          'それでも表示されない場合は、アドレスバーに ',
+        // webgl.disabled を false に戻すのは初期状態に戻すだけ
+        note: [
+          'まだ出ないときは ',
           { code: 'about:config' },
-          ' と入力し、注意の画面で「危険性を承知の上で使用する」を押してから、',
+          ' で ',
           { code: 'webgl.disabled' },
-          ' を検索してください。値が true になっていたら、ダブルクリックして false に戻します。これは WebGL を止める設定で、元に戻すのは初期状態に戻すことです。',
+          ' を false に戻す',
         ],
-      ];
+      };
     case 'safari':
-      return [
-        ['Safari では WebGL は最初から有効になっていて、オンにする設定はありません。'],
-        LOCKDOWN_MAC,
-        [
-          'ロックダウンモードを使っていない場合は、「システム設定」→「一般」→「ソフトウェアアップデート」で macOS を最新にし、Safari を一度終了してから開き直してください。',
+      return {
+        steps: [
+          [
+            'ロックダウンモードがオンなら、Safari の「設定」→「Web サイト」→「ロックダウンモード」で、このサイトだけオフ',
+          ],
+          ['macOS を最新にして、Safari を開き直す'],
         ],
-      ];
+      };
     default:
-      return [
-        [
-          'ブラウザの設定にある「ハードウェアアクセラレーション」または「グラフィック アクセラレーション」をオンにして、ブラウザを再起動してください。設定画面の検索欄に「ハードウェア」と入力すると見つけやすくなります。Chrome、Edge、Firefox、Safari、Opera の最新版であれば、どれでも 3D 表示に対応しています。',
+      return {
+        steps: [
+          ['ブラウザの設定を開き、「ハードウェア」で検索'],
+          ['ハードウェア（グラフィック）アクセラレーションをオン'],
+          ['ブラウザを再起動する'],
         ],
-      ];
+        note: RESTART_NOTE,
+      };
   }
 }
 
-/** 「なぜ使えないのか」の見立て。ブラウザが返した状態から分ける */
+/** 「なぜ使えないのか」の見立てを 1 文で。ブラウザが返した状態から分ける */
 function causeText(kind: WebglFailureKind, platform: PlatformKind, browser: BrowserKind): string {
   const apple = platform === 'ios' || browser === 'safari';
   switch (kind) {
     case 'api-missing':
       return apple
-        ? 'このブラウザでは WebGL の機能そのものが止められています。Apple の端末では、ほとんどの場合「ロックダウンモード」が理由です。'
-        : 'このブラウザでは WebGL の機能そのものが止められています。ブラウザの設定や拡張機能、または会社や学校の管理設定で切られていることが多い原因です。';
+        ? 'WebGL が止められています。多くはロックダウンモードが原因です。'
+        : 'WebGL が止められています。ブラウザの設定、拡張機能、管理者の設定などが原因です。';
     case 'disabled':
-      return 'このブラウザでは、WebGL が設定で明示的に止められています。会社や学校で管理されているパソコンでは管理者のポリシーで、そうでなければブラウザの詳細設定や起動時のオプションで切られていることが考えられます。管理されている端末の場合、自分では変更できないことがあるので、管理者にご相談ください。';
+      return '設定や管理者のポリシーで WebGL が止められています。会社や学校の端末なら管理者にご相談ください。';
     case 'blocked':
-      return '以前にグラフィックの処理が止まったため、ブラウザが念のため、このサイトでの WebGL を一時的に止めています。ブラウザを完全に終了して起動し直すと元に戻ります。';
+      return 'グラフィックの不具合のため、ブラウザが WebGL を一時的に止めています。ブラウザを完全に終了して開き直すと戻ります。';
     case 'creation-failed':
       return platform === 'desktop'
-        ? 'WebGL の機能はありますが、パソコンのグラフィック機能（GPU）を使えない状態です。ハードウェアアクセラレーションがオフになっている、グラフィックドライバがブラウザの対応外になっている、仮想環境やリモートデスクトップで見ている、などが考えられます。'
-        : 'WebGL の機能はありますが、端末のグラフィック機能を使えない状態です。ブラウザや OS が古いか、端末のグラフィック機能がブラウザの対応外になっていることが考えられます。';
+        ? 'GPU を使えない状態です。ハードウェアアクセラレーションがオフ、ドライバが対応外、リモート環境などが考えられます。'
+        : '端末のグラフィック機能を使えない状態です。ブラウザや OS が古い可能性があります。';
   }
 }
 
-const LEAD =
-  'お使いのブラウザで、3D を描くための仕組み（WebGL）が使えない状態になっています。演目の情報や再生の操作は、このままお使いいただけます。';
+const SAFETY =
+  'WebGL は主要なブラウザに標準で入っている機能です。有効にしても、サイトが端末のファイルやほかのタブに触れることはありません。';
 
-const STILL_NOT =
-  '設定がすでにオンになっている場合は、ブラウザのウィンドウをすべて閉じて、起動し直してみてください。グラフィックの不具合が続くと、ブラウザは念のため WebGL を一時的に止めることがあり、再起動すると元に戻ります。会社や学校のパソコンでは管理者の設定で止められていることもあるので、その場合は管理者にご相談ください。';
-
-const SAFETY = [
-  '安全です。WebGL は Chrome、Edge、Firefox、Safari など主要なブラウザすべてに標準で入っていて、最初から有効になっている機能です。地図サービスや商品の 3D 表示など、多くのサイトがふだんから使っています。',
-  'WebGL はブラウザの中の隔離された領域（サンドボックス）で動き、ブラウザがグラフィックへの命令を確かめてから処理します。そのため、有効にしたことでサイトが端末の中のファイルやほかのタブの内容に触れられるようになることはありません。ハードウェアアクセラレーションの設定も表示を速くするためのもので、セキュリティを弱めるものではありません。',
-  'なお、このページは WebGL を 3D の描画にだけ使っていて、WebGL を通じて何かを外部へ送ることはありません。',
-];
-
+// ロックダウンモードは自分で選んで使う防御機能なので、端末全体を外すようには勧めない
 const SAFETY_LOCKDOWN =
-  'ただし、ロックダウンモードは、特定の人を狙った高度な攻撃から身を守るために自分で選んでオンにする機能です。オンにした理由がある場合は、端末全体のロックダウンモードは外さず、このサイトだけを対象から外すか、別の端末でご覧ください。';
+  '理由があってロックダウンモードを使っている場合は、端末全体はオンのまま、このサイトだけ外してください。';
 
-function renderParagraph(p: Paragraph, key: number) {
+function renderLine(line: Line) {
+  return line.map((seg, i) => (typeof seg === 'string' ? seg : <code key={i}>{seg.code}</code>));
+}
+
+const ICON = {
+  width: 16,
+  height: 16,
+  viewBox: '0 0 16 16',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.5,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  'aria-hidden': true,
+} as const;
+
+/** 立方体に斜線。「3D が使えない」 */
+function CubeOffIcon() {
   return (
-    <p key={key}>
-      {p.map((seg, i) => (typeof seg === 'string' ? seg : <code key={i}>{seg.code}</code>))}
-    </p>
+    <svg {...ICON} width={20} height={20}>
+      <path d="M8 1.8 13.5 4.8v6.4L8 14.2 2.5 11.2V4.8Z" />
+      <path d="M2.5 4.8 8 7.8l5.5-3M8 7.8v6.4" />
+      <path d="M1.5 1.5l13 13" />
+    </svg>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg {...ICON}>
+      <circle cx="8" cy="8" r="6.2" />
+      <path d="M8 4.8v3.6M8 11h.01" />
+    </svg>
+  );
+}
+
+function WrenchIcon() {
+  return (
+    <svg {...ICON}>
+      <path d="M10.2 2.2a3.3 3.3 0 0 0-3.9 4.4L2 10.9 3.1 14l3.1-1.1 4.3-4.3a3.3 3.3 0 0 0 4.4-3.9l-2 2-1.8-.4-.4-1.8Z" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg {...ICON}>
+      <path d="M8 1.6 13 3.5v4c0 3.2-2.1 5.6-5 6.9-2.9-1.3-5-3.7-5-6.9v-4Z" />
+      <path d="m5.6 8 1.7 1.7 3.1-3.3" />
+    </svg>
   );
 }
 
@@ -179,8 +213,8 @@ type Props = {
 };
 
 /**
- * WebGL が使えないときの案内。考えられる原因、OS とブラウザに合わせた直し方、有効にしても安全であることを文章で伝える。
- * 文章が長く HUD と重なるので、ネイティブの <dialog> で最前面に出す（Esc で閉じる・フォーカスも任せる）。
+ * WebGL が使えないときの案内。原因、OS とブラウザに合わせた直し方、有効にしても安全であることを短く伝える。
+ * HUD と重なるので、ネイティブの <dialog> で最前面に出す（Esc で閉じる・フォーカスも任せる）。
  */
 export function WebglNotice({ failure, userAgent, maxTouchPoints }: Props) {
   const [open, setOpen] = useState(true);
@@ -205,6 +239,7 @@ export function WebglNotice({ failure, userAgent, maxTouchPoints }: Props) {
   const browser = detectBrowser(ua);
   const platform = detectPlatform(ua, maxTouchPoints ?? nav?.maxTouchPoints ?? 0);
   const apple = platform === 'ios' || browser === 'safari';
+  const guide = guideFor(browser, platform);
 
   return (
     <dialog
@@ -218,24 +253,50 @@ export function WebglNotice({ failure, userAgent, maxTouchPoints }: Props) {
       // 既定の動作（Space でのスクロール、Esc で閉じる、Tab の移動）は止めない
       onKeyDown={(e) => e.stopPropagation()}
     >
-      <h2 id="webgl-notice-title">3D 表示を利用できません</h2>
-      <p>{LEAD}</p>
+      <header className="webgl-notice-head">
+        <span className="webgl-notice-badge">
+          <CubeOffIcon />
+        </span>
+        <div>
+          <h2 id="webgl-notice-title">3D 表示を利用できません</h2>
+          <p className="webgl-notice-lead">
+            再生の操作や演目の情報は、このままお使いいただけます。
+          </p>
+        </div>
+      </header>
 
-      <h3>考えられる原因</h3>
-      <p>{causeText(failure.kind, platform, browser)}</p>
+      <section className="webgl-notice-row">
+        <AlertIcon />
+        <div>
+          <h3>原因</h3>
+          <p>{causeText(failure.kind, platform, browser)}</p>
+        </div>
+      </section>
 
-      <h3>3D 表示を有効にする方法</h3>
-      {enableSteps(browser, platform).map(renderParagraph)}
-      {platform === 'desktop' && browser !== 'safari' && <p>{STILL_NOT}</p>}
+      <section className="webgl-notice-row">
+        <WrenchIcon />
+        <div>
+          <h3>直し方</h3>
+          <ol className="webgl-notice-steps">
+            {guide.steps.map((line, i) => (
+              <li key={i}>{renderLine(line)}</li>
+            ))}
+          </ol>
+          {guide.note && <p className="webgl-notice-note">{renderLine(guide.note)}</p>}
+        </div>
+      </section>
 
-      <h3>有効にしても安全ですか</h3>
-      {SAFETY.map((t) => (
-        <p key={t}>{t}</p>
-      ))}
-      {apple && <p>{SAFETY_LOCKDOWN}</p>}
+      <section className="webgl-notice-row">
+        <ShieldIcon />
+        <div>
+          <h3>有効にしても安全です</h3>
+          <p>{SAFETY}</p>
+          {apple && <p>{SAFETY_LOCKDOWN}</p>}
+        </div>
+      </section>
 
       <details className="webgl-notice-tech">
-        <summary>技術的な情報（お問い合わせの際にお伝えください）</summary>
+        <summary>技術的な情報</summary>
         <code>
           {`${failure.kind} / ${platform} / ${browser}${failure.detail ? ` / ${failure.detail}` : ''}`}
         </code>
