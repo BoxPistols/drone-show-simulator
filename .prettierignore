@@ -11,6 +11,9 @@ show-schema.js
 test/
 tools/
 playwright-report/
+video/out/
+video/public/
+video/pnpm-lock.yaml
 test-results/
 
 # legacy assets — P9 will migrate or remove these
