@@ -57,17 +57,21 @@ try {
     executablePath: process.env.CHROMIUM_PATH || undefined,
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
   });
-  const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
-  for (const shot of SHOTS) {
-    await page.goto(BASE + shot.path, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(shot.wait);
-    if (await page.locator('.webgl-notice').count()) {
-      throw new Error(`WebGL unavailable while capturing ${shot.path}`);
+  // 途中で失敗しても（WebGL が使えないと分かったときなど）ブラウザを必ず閉じる
+  try {
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    for (const shot of SHOTS) {
+      await page.goto(BASE + shot.path, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(shot.wait);
+      if (await page.locator('.webgl-notice').count()) {
+        throw new Error(`WebGL unavailable while capturing ${shot.path}`);
+      }
+      await page.screenshot({ path: path.join(outDir, shot.file), type: 'jpeg', quality: 88 });
+      console.log('captured', shot.file);
     }
-    await page.screenshot({ path: path.join(outDir, shot.file), type: 'jpeg', quality: 88 });
-    console.log('captured', shot.file);
+  } finally {
+    await browser.close();
   }
-  await browser.close();
 } finally {
   server.kill();
 }
