@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Astra Flock の紹介動画（Remotion）",
+  "description": "Astra Flock の紹介動画（Remotion）。横長と縦長の 2 本",
   "scripts": {
+    "music": "node scripts/music.ts",
+    "prestudio": "pnpm music",
     "studio": "remotion studio src/index.ts",
+    "prerender": "pnpm music",
+    "render": "remotion render src/index.ts Intro out/astra-flock-intro.mp4 && remotion render src/index.ts IntroVertical out/astra-flock-intro-vertical.mp4",
+    "still": "remotion still src/index.ts Intro out/poster.png --frame=90 && remotion still src/index.ts IntroVertical out/poster-vertical.png --frame=90",
     "capture": "node scripts/capture.mjs",
     "fonts": "node scripts/fonts.mjs",
-    "render": "remotion render src/index.ts Intro out/astra-flock-intro.mp4",
-    "still": "remotion still src/index.ts Intro out/poster.png --frame=90",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -20,7 +23,11 @@
     "remotion": "4.0.537"
   },
   "devDependencies": {
+    "@types/node": "22.10.5",
     "@types/react": "18.3.18",
     "typescript": "5.7.3"
+  },
+  "engines": {
+    "node": ">=22.18"
   }
 }

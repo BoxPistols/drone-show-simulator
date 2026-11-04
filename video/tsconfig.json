@@ -8,10 +8,11 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": [],
+    "types": ["node"],
     "paths": {
       "~/*": ["../src/*"]
-    }
+    },
+    "allowImportingTsExtensions": true
   },
-  "include": ["src", "remotion.config.ts"]
+  "include": ["src", "scripts/music.ts", "remotion.config.ts"]
 }

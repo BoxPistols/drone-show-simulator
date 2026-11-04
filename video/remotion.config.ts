@@ -17,3 +17,8 @@ Config.setVideoImageFormat('jpeg');
 Config.setJpegQuality(92);
 Config.setCodec('h264');
 Config.setCrf(18);
+
+// Remotion が取ってくるブラウザを使えない環境では、手元の Chromium（headless shell）を指定できる
+if (process.env.REMOTION_BROWSER_EXECUTABLE) {
+  Config.setBrowserExecutable(process.env.REMOTION_BROWSER_EXECUTABLE);
+}

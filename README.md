@@ -168,12 +168,12 @@ Vitest / E2E は CI 側で担保。
 
 ## 紹介動画
 
-約 34 秒の紹介動画を [Remotion](https://www.remotion.dev/) で作っています（`video/`）。
-アプリとは別パッケージで、ビルドや CI には含まれません。点群はアプリの `src/lib/formations.ts` の座標をそのまま使います。
+36 秒の紹介動画を [Remotion](https://www.remotion.dev/) で作っています（`video/`）。横長（1920×1080）と SNS 用の縦長（1080×1920）の 2 本で、音楽付きです。
+アプリとは別パッケージで、ビルドや CI には含まれません。点群はアプリの `src/lib/formations.ts` の座標を、音楽はアプリのアンビエント音楽と同じ音階（`src/routes/show/audio/scale.ts`）をそのまま使います。
 
 ```bash
 cd video && pnpm install && pnpm render
-# → video/out/astra-flock-intro.mp4
+# → video/out/astra-flock-intro.mp4、video/out/astra-flock-intro-vertical.mp4
 ```
 
 詳しくは [`video/README.md`](./video/README.md)。

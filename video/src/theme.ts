@@ -40,7 +40,3 @@ export const COLORS = {
 
 /** 既定のパレット「極光」。アプリの PALETTES.aurora と同じ */
 export const AURORA = ['#31a9c7', '#d429e0', '#98ff9e', '#ffe58a'] as const;
-
-export const FPS = 30;
-export const WIDTH = 1920;
-export const HEIGHT = 1080;

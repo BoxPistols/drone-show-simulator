@@ -23,6 +23,8 @@ const BASE = `http://localhost:${PORT}`;
 const SHOTS = [
   // 観賞は演目が組み上がってから撮る。?f= で演目を指定できる
   { path: '/?f=7', file: 'show.jpg', wait: 7000 },
+  // 機体目線：観客の視点のまま、4 機の目線を小窓で重ねる
+  { path: '/?f=0&pip=AS-090,AS-240,AS-400,AS-560', file: 'pov.jpg', wait: 7000 },
   { path: '/fleet', file: 'fleet.jpg', wait: 2500 },
   { path: '/choreography', file: 'choreo.jpg', wait: 4000 },
   { path: '/schedule', file: 'schedule.jpg', wait: 2500 },
@@ -42,7 +44,9 @@ async function waitForServer(url, timeoutMs = 30000) {
   throw new Error(`dev server did not start: ${url}`);
 }
 
-const server = spawn('pnpm', ['exec', 'vite', '--port', String(PORT), '--strictPort'], {
+// pnpm exec を挟むと終了の合図が vite まで届かず残るので、vite を node で直接起動する
+const viteBin = path.join(appDir, 'node_modules/vite/bin/vite.js');
+const server = spawn(process.execPath, [viteBin, '--port', String(PORT), '--strictPort'], {
   cwd: appDir,
   stdio: 'ignore',
 });
