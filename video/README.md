@@ -74,7 +74,7 @@ Remotion は初回にブラウザ（Chrome Headless Shell）を自動で取っ�
   ```
   プロキシ越しの環境では、Node 22.21 以降で `NODE_USE_ENV_PROXY=1 pnpm fonts` を実行します（それより前の Node はこの変数を読まず、プロキシを使いません）。
 
-書き出しはネットワークに頼らず、`public/` のファイルだけを読みます。
+書き出しで読む素材は `public/` のファイルだけです。ただし、Remotion のブラウザを初めて取ってくるときだけはネットワークが要ります（`REMOTION_BROWSER_EXECUTABLE` で手元のものを指定した場合は不要）。
 
 ## ライセンス
 

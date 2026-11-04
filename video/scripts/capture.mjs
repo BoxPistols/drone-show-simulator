@@ -9,7 +9,7 @@
  * Playwright のブラウザが入っていない環境では CHROMIUM_PATH で手元の Chromium を指定できる。
  */
 import { spawn } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -35,6 +35,20 @@ const SHOTS = [
 const appHtml = await readFile(path.join(appDir, 'index.html'), 'utf8');
 const APP_TITLE = appHtml.match(/<title>([^<]+)<\/title>/)?.[1];
 if (!APP_TITLE) throw new Error('index.html has no <title>');
+
+// ポートに既に何かが応答していたら始めない。別のチェックアウトで動いている同じアプリ（<title> も同じ）を
+// 撮ってしまわないよう、起動前に確かめる
+async function portAnswers(url) {
+  try {
+    await fetch(url, { signal: AbortSignal.timeout(1000) });
+    return true;
+  } catch {
+    return false;
+  }
+}
+if (await portAnswers(BASE)) {
+  throw new Error(`port ${PORT} is already in use. Stop the server on it and try again.`);
+}
 
 // pnpm exec を挟むと終了の合図が vite まで届かず残るので、vite を node で直接起動する。
 // 起動に失敗したとき（ポートが使用中など）に理由が分かるよう、エラー出力だけはそのまま流す
@@ -89,15 +103,21 @@ try {
   // 途中で失敗しても（WebGL が使えないと分かったときなど）ブラウザを必ず閉じる
   try {
     const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    // 全部撮れてから書き出す。途中で失敗したときは public/ の画面を新旧混ぜずに、元のまま残す
+    const captured = [];
     for (const shot of SHOTS) {
       await page.goto(BASE + shot.path, { waitUntil: 'networkidle' });
       await page.waitForTimeout(shot.wait);
       if (await page.locator('.webgl-notice').count()) {
         throw new Error(`WebGL unavailable while capturing ${shot.path}`);
       }
-      await page.screenshot({ path: path.join(outDir, shot.file), type: 'jpeg', quality: 88 });
+      captured.push({
+        file: shot.file,
+        data: await page.screenshot({ type: 'jpeg', quality: 88 }),
+      });
       console.log('captured', shot.file);
     }
+    for (const { file, data } of captured) await writeFile(path.join(outDir, file), data);
   } finally {
     await browser.close();
   }

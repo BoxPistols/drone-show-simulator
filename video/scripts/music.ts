@@ -15,7 +15,7 @@
  *
  * Node 22.18 以降なら TypeScript のまま実行できる（型だけを取り除いて動く）。
  */
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -61,12 +61,14 @@ const CHORDS: ChordAt[] = [
 const GLIDE = 1.6;
 
 /** 時刻 t でのパッドの各声の周波数（前の和音から GLIDE 秒かけて指数的に移る） */
+const CHORD_HZ = CHORDS.map(({ index }) => chordForFormation(index).map((s) => semitoneToHz(s)));
+
 function padFreqs(t: number): number[] {
   let k = 0;
   for (let i = 0; i < CHORDS.length; i++) if (t >= CHORDS[i]!.t) k = i;
-  const cur = chordForFormation(CHORDS[k]!.index).map((s) => semitoneToHz(s));
+  const cur = CHORD_HZ[k]!;
   if (k === 0) return cur;
-  const prev = chordForFormation(CHORDS[k - 1]!.index).map((s) => semitoneToHz(s));
+  const prev = CHORD_HZ[k - 1]!;
   const u = Math.min(1, (t - CHORDS[k]!.t) / GLIDE);
   const e = u * u * (3 - 2 * u);
   return cur.map((hz, v) => prev[v]! * Math.pow(hz / prev[v]!, e));
@@ -399,5 +401,8 @@ header.writeUInt32LE(data.length, 40);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const out = path.resolve(here, '../public/music.wav');
 await mkdir(path.dirname(out), { recursive: true });
-await writeFile(out, Buffer.concat([header, data]));
+// 書きかけの WAV が読まれないよう、同じ場所の一時ファイルに書いてから置き換える（名前はプロセスごとに変える）
+const tmp = `${out}.${process.pid}.tmp`;
+await writeFile(tmp, Buffer.concat([header, data]));
+await rename(tmp, out);
 console.log(`music.wav  ${DURATION.toFixed(1)}s  ${(data.length / 1024 / 1024).toFixed(1)} MB`);
